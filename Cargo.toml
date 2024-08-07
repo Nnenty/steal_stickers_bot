@@ -4,7 +4,7 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-telers = "1.0.0-alpha.20"
+telers = {version = "1.0.0-alpha.20", features = ["memory-storage"]}
 tokio = { version = "1.36", features = ["macros"]}
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] } 
