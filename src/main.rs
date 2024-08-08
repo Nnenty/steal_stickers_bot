@@ -1,8 +1,8 @@
 use telers::{
-    enums::ContentType as ContentTypeEnum,
+    enums::{ChatType as ChatTypeEnum, ContentType as ContentTypeEnum},
     errors::HandlerError,
     event::ToServiceProvider as _,
-    filters::{Command, ContentType, State as StateFilter},
+    filters::{ChatType, Command, ContentType, State as StateFilter},
     fsm::{MemoryStorage, Strategy},
     methods::SetMyCommands,
     middlewares::outer::FSMContext,
@@ -14,8 +14,8 @@ use tracing_subscriber::{fmt, layer::SubscriberExt as _, util::SubscriberInitExt
 
 mod handlers;
 use handlers::{
-    get_new_sticker_set_name, get_new_sticker_set_title, process_wrong_sticker, start_handler,
-    steal_handler, steal_sticker_set_handler,
+    create_new_sticker_set, process_wrong_sticker, start_handler, steal_handler,
+    steal_sticker_set_handler,
 };
 pub mod states;
 use states::State;
@@ -23,9 +23,8 @@ use states::State;
 async fn set_commands(bot: Bot) -> Result<(), HandlerError> {
     let help = BotCommand::new("help", "Show help message");
     let steal = BotCommand::new("steal", "Steal sticker pack");
-    let my_stickers = BotCommand::new("my_stickers", "Your current sticker packs you was steal");
 
-    let private_chats = [help, steal, my_stickers];
+    let private_chats = [help, steal];
 
     bot.send(SetMyCommands::new(private_chats.clone()).scope(BotCommandScopeAllPrivateChats {}))
         .await?;
@@ -44,7 +43,7 @@ async fn main() {
 
     let mut main_router = Router::new("main");
 
-    let mut router = Router::new("router");
+    let mut router = Router::new("private");
 
     let storage = MemoryStorage::new();
     router
@@ -55,14 +54,14 @@ async fn main() {
     // router to execute commands `/start` and `/help`
     router
         .message
-        .register(start_handler)
-        .filter(Command::many(["start", "help"]))
-        .filter(StateFilter::none());
+        .register(start_handler::<MemoryStorage>)
+        .filter(Command::many(["start", "help"]));
 
     // router to execute command `/steal`
     router
         .message
         .register(steal_handler::<MemoryStorage>)
+        .filter(ChatType::one(ChatTypeEnum::Private))
         .filter(Command::one("steal"))
         .filter(ContentType::one(ContentTypeEnum::Text))
         .filter(StateFilter::none());
@@ -81,18 +80,12 @@ async fn main() {
         .filter(ContentType::one(ContentTypeEnum::Sticker).invert())
         .filter(StateFilter::one(State::StealStickerSetName));
 
-    // router to get name for new sticker set
+    // router to get title for new sticker set
     router
         .message
-        .register(get_new_sticker_set_name::<MemoryStorage>)
+        .register(create_new_sticker_set::<MemoryStorage>)
         .filter(ContentType::one(ContentTypeEnum::Text))
-        .filter(StateFilter::one(State::NewStickerSetName));
-
-    router
-        .message
-        .register(get_new_sticker_set_title::<MemoryStorage>)
-        .filter(ContentType::one(ContentTypeEnum::Text))
-        .filter(StateFilter::one(State::NewStickerSetTitle));
+        .filter(StateFilter::one(State::CreateNewStickerSet));
 
     main_router.include(router);
 
