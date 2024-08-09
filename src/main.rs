@@ -65,7 +65,7 @@ async fn main() {
         .filter(ChatType::one(ChatTypeEnum::Private))
         .filter(Command::many(["cancel"]));
 
-    // router to start steal sticker set
+    // router to execute command `/steal`
     router
         .message
         .register(steal_handler::<MemoryStorage>)

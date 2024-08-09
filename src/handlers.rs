@@ -80,7 +80,7 @@ pub async fn steal_sticker_set_handler<S: Storage>(
     // after this message should call `get_new_stickerset_name()` function
     bot.send(SendMessage::new(
         message.chat.id(),
-        format!("Then enter name for your new sticker pack:"),
+        format!("Then enter name for your new sticker pack (1-64 characters):"),
     ))
     .await?;
 
@@ -95,6 +95,22 @@ pub async fn process_wrong_sticker(bot: Bot, message: Message) -> HandlerResult 
     .await?;
 
     Ok(EventReturn::Finish)
+}
+
+pub async fn cancel_handler<S: Storage>(
+    bot: Bot,
+    message: MessageText,
+    fsm: Context<S>,
+) -> HandlerResult {
+    fsm.finish().await.map_err(Into::into)?;
+
+    bot.send(SendMessage::new(
+        message.chat.id(),
+        "Last command was canceled.",
+    ))
+    .await?;
+
+    Ok(EventReturn::Cancel)
 }
 
 /// # Panics
@@ -117,12 +133,24 @@ pub async fn create_new_sticker_set<S: Storage>(
 
             bot.send(SendMessage::new(
                 message.chat.id(),
-                "Error occurded while parsing name of this sticker pack: name is empty.",
+                "Error occurded while parsing name of this sticker pack: name is empty;\nTry again.",
             ))
             .await?;
 
             return Ok(EventReturn::Cancel);
         }
+    };
+
+    let set_title = if message.text.len() > 64 {
+        bot.send(SendMessage::new(
+            message.chat.id(),
+            "Too long name for sticker pack;\nthe name has been shortened to 64 characters.",
+        ))
+        .await?;
+
+        message.text[..64].to_string().into_boxed_str()
+    } else {
+        message.text
     };
 
     // finish is not at the end because if an error occurs, the state will not be cleared
@@ -164,11 +192,9 @@ pub async fn create_new_sticker_set<S: Storage>(
     // to generate random name for sticker set
     let charset = "abcg890hijklmJKxyzAnopqrstuvwBefCDEFGHIQRSTUVWXYZ1237LMNOP45d6";
 
-    // prepare name and title for new sticker set
+    // prepare name for new sticker set
     let set_name = String::from(generate(11, charset));
     let mut set_name = format!("{}_by_{}", set_name, bot_user);
-
-    let set_title = message.text;
 
     let user = message.from.expect("error while parsing user");
 
@@ -211,6 +237,12 @@ pub async fn create_new_sticker_set<S: Storage>(
                     error!("file to create new sticker set: {}", err);
                     debug!("sticker set name: {}", set_name);
 
+                    bot.send(SendMessage::new(
+                        message.chat.id(),
+                        format!("Error occurded while creating new sticker pack :(\nTry again."),
+                    ))
+                    .await?;
+
                     return Ok(EventReturn::Cancel);
                 }
             }
@@ -237,14 +269,14 @@ pub async fn create_new_sticker_set<S: Storage>(
         new sticker pack, use official Telegram bot @Stickers, which does an excellent job of managing sticker packs.\n\
         (the name of your new sticker pack will be similar to `spscjnXrbLA_by_steal_stickers_bot`)
 \n\
-        List of commands in @Stickers that may be useful to you:
-        /addsticker – add a sticker to an existing set
-        /editsticker – change emoji or coordinates
-        /replacesticker – replace stickers in a set
-        /ordersticker – reorder stickers in a set
-        /delsticker – remove a sticker from an existing set
-        /setpackicon – set a sticker set icon
-        /renamepack – rename a set
+        List of commands in @Stickers that may be useful to you:\n\
+        /addsticker – add a sticker to an existing set\n\
+        /editsticker – change emoji or coordinates\n\
+        /replacesticker – replace stickers in a set\n\
+        /ordersticker – reorder stickers in a set\n\
+        /delsticker – remove a sticker from an existing set\n\
+        /setpackicon – set a sticker set icon\n\
+        /renamepack – rename a set\n\
         /delpack – delete a set
         ",
         new_ss_url = html_text_link(&set_title, link),
@@ -255,20 +287,4 @@ pub async fn create_new_sticker_set<S: Storage>(
         .await?;
 
     Ok(EventReturn::Finish)
-}
-
-pub async fn cancel_handler<S: Storage>(
-    bot: Bot,
-    message: MessageText,
-    fsm: Context<S>,
-) -> HandlerResult {
-    fsm.finish().await.map_err(Into::into)?;
-
-    bot.send(SendMessage::new(
-        message.chat.id(),
-        "Last command was canceled.",
-    ))
-    .await?;
-
-    Ok(EventReturn::Cancel)
 }
