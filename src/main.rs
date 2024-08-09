@@ -14,7 +14,7 @@ use tracing_subscriber::{fmt, layer::SubscriberExt as _, util::SubscriberInitExt
 
 mod handlers;
 use handlers::{
-    create_new_sticker_set, process_wrong_sticker, start_handler, steal_handler,
+    cancel_handler, create_new_sticker_set, process_wrong_sticker, start_handler, steal_handler,
     steal_sticker_set_handler,
 };
 pub mod states;
@@ -23,8 +23,9 @@ use states::State;
 async fn set_commands(bot: Bot) -> Result<(), HandlerError> {
     let help = BotCommand::new("help", "Show help message");
     let steal = BotCommand::new("steal", "Steal sticker pack");
+    let cancel = BotCommand::new("cancel", "Cancel last command");
 
-    let private_chats = [help, steal];
+    let private_chats = [help, steal, cancel];
 
     bot.send(SetMyCommands::new(private_chats.clone()).scope(BotCommandScopeAllPrivateChats {}))
         .await?;
@@ -55,9 +56,16 @@ async fn main() {
     router
         .message
         .register(start_handler::<MemoryStorage>)
+        .filter(ChatType::one(ChatTypeEnum::Private))
         .filter(Command::many(["start", "help"]));
 
-    // router to execute command `/steal`
+    router
+        .message
+        .register(cancel_handler::<MemoryStorage>)
+        .filter(ChatType::one(ChatTypeEnum::Private))
+        .filter(Command::many(["cancel"]));
+
+    // router to start steal sticker set
     router
         .message
         .register(steal_handler::<MemoryStorage>)
@@ -80,7 +88,7 @@ async fn main() {
         .filter(ContentType::one(ContentTypeEnum::Sticker).invert())
         .filter(StateFilter::one(State::StealStickerSetName));
 
-    // router to get title for new sticker set
+    // router to create new sticker set
     router
         .message
         .register(create_new_sticker_set::<MemoryStorage>)
