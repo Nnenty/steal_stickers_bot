@@ -12,13 +12,15 @@ use telers::{
 use tracing::debug;
 use tracing_subscriber::{fmt, layer::SubscriberExt as _, util::SubscriberInitExt as _, EnvFilter};
 
+pub mod core;
+pub mod states;
+pub use states::State;
+
 mod handlers;
 use handlers::{
     cancel_handler, create_new_sticker_set, process_wrong_sticker, start_handler, steal_handler,
     steal_sticker_set_handler,
 };
-pub mod states;
-use states::State;
 
 async fn set_commands(bot: Bot) -> Result<(), HandlerError> {
     let help = BotCommand::new("help", "Show help message");
