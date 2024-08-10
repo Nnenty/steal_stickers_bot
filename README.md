@@ -31,4 +31,4 @@ docker run -e BOT_TOKEN=<YOUR_BOT_TOKEN> steal_stickers_bot ss_bot_container
 <h2>License</h2>
 
 Licensed under:
-- MIT License ([LICENSE])
+- MIT License ([LICENSE](./LICENSE))
