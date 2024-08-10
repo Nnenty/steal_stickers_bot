@@ -20,6 +20,7 @@ cd steal_stickers_bot
 docker build -t steal_stickers_bot .
 ```
 2. Run docker container:
+> specify <b>your</b> bot token in env `BOT_TOKEN`
 ```
 docker run -e BOT_TOKEN=<YOUR_BOT_TOKEN> steal_stickers_bot ss_bot_container
 ```
