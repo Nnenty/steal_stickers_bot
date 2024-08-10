@@ -1,13 +1,16 @@
+use std::time::Duration;
+
+use futures::StreamExt;
 use telers::{
     enums::ParseMode,
     errors::session::ErrorKind,
     event::{telegram::HandlerResult, EventReturn},
     fsm::{Context, Storage},
-    methods::{CreateNewStickerSet, GetMe, GetStickerSet, SendMessage},
+    methods::{AddStickerToSet, CreateNewStickerSet, GetMe, GetStickerSet, SendMessage},
     types::{InputFile, InputSticker, Message, MessageSticker, MessageText},
     Bot,
 };
-use tracing::{debug, error};
+use tracing::{debug, error, warn};
 
 use crate::core::{generate_sticker_set_name_and_link, send_sticker_set_message, sticker_format};
 use crate::State;
@@ -157,30 +160,48 @@ pub async fn create_new_sticker_set<S: Storage>(
 
     bot.send(SendMessage::new(
         message.chat.id(),
-        format!("Creating sticker pack with name `{}` for you..", set_title),
+        format!(
+            "Creating sticker pack with name `{}` for you..\n(creating sticker packs \
+            containing more than 50 stickers can take up to a minute)",
+            set_title
+        ),
     ))
     .await?;
+
+    debug!("set name: {} set title: {}", set_name, set_title);
+
+    let (steal_stickers_from_sticker_set, sticker_set_length, more_than_50) =
+        if steal_stickers_from_sticker_set.len() > 50 {
+            (Box::new(&steal_stickers_from_sticker_set[..]), 50, true)
+        } else {
+            (
+                Box::new(&steal_stickers_from_sticker_set[..]),
+                steal_stickers_from_sticker_set.len(),
+                false,
+            )
+        };
 
     while let Err(err) = bot
         .send(CreateNewStickerSet::new(
             user.id,
             &set_name,
             set_title.as_ref(),
-            steal_stickers_from_sticker_set.into_iter().map(|sticker| {
-                let sticker_is =
-                    InputSticker::new(InputFile::id(sticker.file_id.as_ref()), sticker_format);
+            steal_stickers_from_sticker_set[..sticker_set_length]
+                .into_iter()
+                .map(|sticker| {
+                    let sticker_is =
+                        InputSticker::new(InputFile::id(sticker.file_id.as_ref()), sticker_format);
 
-                sticker_is.emoji_list(sticker.clone().emoji)
-            }),
+                    sticker_is.emoji_list(sticker.clone().emoji)
+                }),
         ))
         .await
     {
         match err {
+            // if generated name is invalid or sticker set with this name already exists, regenerate it
             ErrorKind::Telegram(err) => {
                 if err.to_string()
                     == r#"TelegramBadRequest: "Bad Request: sticker set name is already occupied""#
-                    || err.to_string()
-                        == r#"TelegramBadRequest: "Bad Request: invalid sticker set name is specified""#
                 {
                     error!(
                         "file to create new sticker set: {}; try generate sticker set name again..",
@@ -215,6 +236,19 @@ pub async fn create_new_sticker_set<S: Storage>(
             }
         }
     }
+    if more_than_50 {
+        for sticker in &steal_stickers_from_sticker_set[50..] {
+            tokio::time::sleep(Duration::from_millis(1100)).await;
+
+            bot.send(AddStickerToSet::new(user.id, &set_name, {
+                let sticker_is =
+                    InputSticker::new(InputFile::id(sticker.file_id.as_ref()), sticker_format);
+
+                sticker_is.emoji_list(sticker.clone().emoji)
+            }))
+            .await?;
+        }
+    };
 
     let steal_sticker_set_link = format!("t.me/addstickers/{}", steal_sticker_set_name);
 

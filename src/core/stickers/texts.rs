@@ -1,4 +1,4 @@
-use telers::utils::text::html_text_link;
+use telers::utils::text::{html_code, html_text_link};
 
 pub fn send_sticker_set_message(
     sticker_set_title: &str,
@@ -25,6 +25,7 @@ pub fn send_sticker_set_message(
         ",
         new_ss_url = html_text_link(sticker_set_title, sticker_set_link),
         steal_ss_url = html_text_link(other_sticker_set_title, other_sticker_set_link,),
+        sticker_set_name = html_code(sticker_set_name)
     )
 }
 
