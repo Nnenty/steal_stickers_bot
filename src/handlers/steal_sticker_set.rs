@@ -1,6 +1,5 @@
 use std::time::Duration;
 
-use futures::StreamExt;
 use telers::{
     enums::ParseMode,
     errors::session::ErrorKind,
@@ -10,7 +9,7 @@ use telers::{
     types::{InputFile, InputSticker, Message, MessageSticker, MessageText},
     Bot,
 };
-use tracing::{debug, error, warn};
+use tracing::{debug, error};
 
 use crate::core::{generate_sticker_set_name_and_link, send_sticker_set_message, sticker_format};
 use crate::State;
@@ -162,7 +161,7 @@ pub async fn create_new_sticker_set<S: Storage>(
         message.chat.id(),
         format!(
             "Creating sticker pack with name `{}` for you..\n(creating sticker packs \
-            containing more than 50 stickers can take up to a minute)",
+            containing more than 50 stickers can take up to a several minutes)",
             set_title
         ),
     ))
@@ -238,8 +237,6 @@ pub async fn create_new_sticker_set<S: Storage>(
     }
     if more_than_50 {
         for sticker in &steal_stickers_from_sticker_set[50..] {
-            tokio::time::sleep(Duration::from_millis(1100)).await;
-
             bot.send(AddStickerToSet::new(user.id, &set_name, {
                 let sticker_is =
                     InputSticker::new(InputFile::id(sticker.file_id.as_ref()), sticker_format);
@@ -247,6 +244,8 @@ pub async fn create_new_sticker_set<S: Storage>(
                 sticker_is.emoji_list(sticker.clone().emoji)
             }))
             .await?;
+
+            tokio::time::sleep(Duration::from_millis(1111)).await;
         }
     };
 

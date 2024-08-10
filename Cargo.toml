@@ -7,7 +7,6 @@ edition = "2021"
 telers = {version = "1.0.0-alpha.20", features = ["memory-storage"]}
 tokio = { version = "1.36", features = ["macros"]}
 
-futures = "0.3.30"
 random-string = "1.1.0"
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] } 

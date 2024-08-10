@@ -18,16 +18,17 @@ pub use states::State;
 
 mod handlers;
 use handlers::{
-    cancel_handler, create_new_sticker_set, process_wrong_sticker, start_handler, steal_handler,
-    steal_sticker_set_handler,
+    cancel_handler, create_new_sticker_set, process_wrong_sticker, source_handler, start_handler,
+    steal_handler, steal_sticker_set_handler,
 };
 
 async fn set_commands(bot: Bot) -> Result<(), HandlerError> {
     let help = BotCommand::new("help", "Show help message");
+    let source = BotCommand::new("source", "Show the source of the bot");
     let steal = BotCommand::new("steal", "Steal sticker pack");
     let cancel = BotCommand::new("cancel", "Cancel last command");
 
-    let private_chats = [help, steal, cancel];
+    let private_chats = [help, source, steal, cancel];
 
     bot.send(SetMyCommands::new(private_chats.clone()).scope(BotCommandScopeAllPrivateChats {}))
         .await?;
@@ -61,6 +62,14 @@ async fn main() {
         .filter(ChatType::one(ChatTypeEnum::Private))
         .filter(Command::many(["start", "help"]));
 
+    // router to execute commands `/src` and `/source`
+    router
+        .message
+        .register(source_handler::<MemoryStorage>)
+        .filter(ChatType::one(ChatTypeEnum::Private))
+        .filter(Command::many(["src", "source"]));
+
+    // router to cancel last command
     router
         .message
         .register(cancel_handler::<MemoryStorage>)

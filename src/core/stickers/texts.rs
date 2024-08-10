@@ -34,6 +34,7 @@ pub fn send_start_message() -> String {
     Hello! This is bot to steal stickers.\n\
     List of commands you can use:\n\
     /help - Show help message\n\
+    /source or /src - Show source code of the bot\n\
     /steal - Steal sticker pack\n\
     /cancel - Cancel last command
         "
