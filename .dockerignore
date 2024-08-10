@@ -1,0 +1,11 @@
+README.md
+LICENSE
+
+.dockerignore
+.git
+.gitignore
+
+/target
+Cargo.lock
+
+Dockerfile
