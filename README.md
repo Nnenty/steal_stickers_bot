@@ -1,4 +1,7 @@
 <h1 align="center">steal_stickers_bot</h1>
+<div align="center">
+<h4><a href="https://t.me/steal_stickers_bot">link to working bot in Telegram</a>
+</div>
 
 <h2>Preparing</h2>
 
