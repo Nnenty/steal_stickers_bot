@@ -13,10 +13,10 @@ pub async fn start_handler<S: Storage>(
     message: MessageText,
     fsm: Context<S>,
 ) -> HandlerResult {
+    fsm.finish().await.map_err(Into::into)?;
+
     bot.send(SendMessage::new(message.chat.id(), send_start_message()))
         .await?;
-
-    fsm.finish().await.map_err(Into::into)?;
 
     Ok(EventReturn::Finish)
 }

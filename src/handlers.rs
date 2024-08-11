@@ -7,5 +7,6 @@ pub use cancel::cancel_handler;
 pub use source::source_handler;
 pub use start::start_handler;
 pub use steal_sticker_set::{
-    create_new_sticker_set, process_wrong_sticker, steal_handler, steal_sticker_set_handler,
+    create_new_sticker_set, process_wrong_sticker, steal_sticker_set_handler,
+    steal_sticker_set_name_handler,
 };

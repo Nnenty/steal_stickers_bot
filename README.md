@@ -1,12 +1,12 @@
 <h1 align="center">steal_stickers_bot</h1>
 <div align="center">
-<h4><a href="https://t.me/steal_stickers_bot">link to working bot in Telegram</a>
+<h4><a href="https://t.me/steal_stickers_bot">bot in Telegram</a>
 </div>
 
 <h2>Preparing</h2>
 
 1. Install [Docker](https://docs.docker.com/get-docker/).
-2. Get bot token from [@BotFather](https://t.me/BotFather).
+2. Get the bot token from [@BotFather](https://t.me/BotFather).
 3. Clone our repository:
 ```
 git clone https://github.com/Nnenty/steal_stickers_bot
@@ -23,7 +23,7 @@ cd steal_stickers_bot
 docker build -t steal_stickers_bot .
 ```
 2. Run docker container:
-> specify <b>your</b> bot token in env `BOT_TOKEN`
+> specify <b>your</b> bot token in env `BOT_TOKEN`!
 ```
 docker run -e BOT_TOKEN=<YOUR_BOT_TOKEN> steal_stickers_bot ss_bot_container
 ```

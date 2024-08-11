@@ -14,21 +14,22 @@ use tracing_subscriber::{fmt, layer::SubscriberExt as _, util::SubscriberInitExt
 
 pub mod core;
 pub mod states;
-pub use states::State;
+pub use states::StealStickerSetState;
 
 mod handlers;
 use handlers::{
     cancel_handler, create_new_sticker_set, process_wrong_sticker, source_handler, start_handler,
-    steal_handler, steal_sticker_set_handler,
+    steal_sticker_set_handler, steal_sticker_set_name_handler,
 };
 
 async fn set_commands(bot: Bot) -> Result<(), HandlerError> {
     let help = BotCommand::new("help", "Show help message");
     let source = BotCommand::new("source", "Show the source of the bot");
-    let steal = BotCommand::new("steal", "Steal sticker pack");
+    let src = BotCommand::new("src", "Show the source of the bot");
+    let steal = BotCommand::new("steal_pack", "Steal sticker pack");
     let cancel = BotCommand::new("cancel", "Cancel last command");
 
-    let private_chats = [help, source, steal, cancel];
+    let private_chats = [help, source, src, steal, cancel];
 
     bot.send(SetMyCommands::new(private_chats.clone()).scope(BotCommandScopeAllPrivateChats {}))
         .await?;
@@ -55,6 +56,13 @@ async fn main() {
         .outer_middlewares
         .register(FSMContext::new(storage).strategy(Strategy::UserInChat));
 
+    // if user just send messages without request, send him help message
+    router
+        .message
+        .register(start_handler::<MemoryStorage>)
+        .filter(StateFilter::none())
+        .filter(Command::many(["steal_pack", "source", "src", "cancel"]).invert());
+
     // router to execute commands `/start` and `/help`
     router
         .message
@@ -79,32 +87,32 @@ async fn main() {
     // router to execute command `/steal`
     router
         .message
-        .register(steal_handler::<MemoryStorage>)
+        .register(steal_sticker_set_handler::<MemoryStorage>)
         .filter(ChatType::one(ChatTypeEnum::Private))
-        .filter(Command::one("steal"))
+        .filter(Command::one("steal_pack"))
         .filter(ContentType::one(ContentTypeEnum::Text))
         .filter(StateFilter::none());
 
     // router to get sticker pack that user wants to steal
     router
         .message
-        .register(steal_sticker_set_handler::<MemoryStorage>)
+        .register(steal_sticker_set_name_handler::<MemoryStorage>)
         .filter(ContentType::one(ContentTypeEnum::Sticker))
-        .filter(StateFilter::one(State::StealStickerSetName));
+        .filter(StateFilter::one(StealStickerSetState::StealStickerSetName));
 
     // router that processed wrong content type (required type is sticker)
     router
         .message
         .register(process_wrong_sticker)
         .filter(ContentType::one(ContentTypeEnum::Sticker).invert())
-        .filter(StateFilter::one(State::StealStickerSetName));
+        .filter(StateFilter::one(StealStickerSetState::StealStickerSetName));
 
     // router to create new sticker set
     router
         .message
         .register(create_new_sticker_set::<MemoryStorage>)
         .filter(ContentType::one(ContentTypeEnum::Text))
-        .filter(StateFilter::one(State::CreateNewStickerSet));
+        .filter(StateFilter::one(StealStickerSetState::CreateNewStickerSet));
 
     main_router.include(router);
 

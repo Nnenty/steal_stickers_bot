@@ -12,9 +12,9 @@ use telers::{
 use tracing::{debug, error};
 
 use crate::core::{generate_sticker_set_name_and_link, send_sticker_set_message, sticker_format};
-use crate::State;
+use crate::StealStickerSetState;
 
-pub async fn steal_handler<S: Storage>(
+pub async fn steal_sticker_set_handler<S: Storage>(
     bot: Bot,
     message: MessageText,
     fsm: Context<S>,
@@ -25,14 +25,14 @@ pub async fn steal_handler<S: Storage>(
     ))
     .await?;
 
-    fsm.set_state(State::StealStickerSetName)
+    fsm.set_state(StealStickerSetState::StealStickerSetName)
         .await
         .map_err(Into::into)?;
 
     Ok(EventReturn::Finish)
 }
 
-pub async fn steal_sticker_set_handler<S: Storage>(
+pub async fn steal_sticker_set_name_handler<S: Storage>(
     bot: Bot,
     message: MessageSticker,
     fsm: Context<S>,
@@ -43,7 +43,7 @@ pub async fn steal_sticker_set_handler<S: Storage>(
         .await
         .map_err(Into::into)?;
 
-    fsm.set_state(State::CreateNewStickerSet)
+    fsm.set_state(StealStickerSetState::CreateNewStickerSet)
         .await
         .map_err(Into::into)?;
 

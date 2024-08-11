@@ -27,5 +27,5 @@ pub async fn source_handler<S: Storage>(
     )
     .await?;
 
-    Ok(EventReturn::Cancel)
+    Ok(EventReturn::Finish)
 }
