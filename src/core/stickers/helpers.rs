@@ -1,14 +1,14 @@
 use random_string::generate;
 use telers::types::Sticker;
 
-pub fn sticker_format(stickers: &[Sticker]) -> Option<&str> {
+pub fn sticker_format(stickers: &[Sticker]) -> Option<String> {
     stickers.iter().next().map(|sticker| {
         if sticker.is_animated {
-            "animated"
+            "animated".to_owned()
         } else if sticker.is_video {
-            "video"
+            "video".to_owned()
         } else {
-            "static"
+            "static".to_owned()
         }
     })
 }

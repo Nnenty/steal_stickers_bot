@@ -12,14 +12,17 @@ use telers::{
 use tracing::debug;
 use tracing_subscriber::{fmt, layer::SubscriberExt as _, util::SubscriberInitExt as _, EnvFilter};
 
+// export modules
 pub mod core;
 pub mod states;
-pub use states::StealStickerSetState;
+// export states
+pub use states::{AddStickerState, StealStickerSetState};
 
 mod handlers;
 use handlers::{
-    cancel_handler, create_new_sticker_set, process_wrong_sticker, source_handler, start_handler,
-    steal_sticker_set_handler, steal_sticker_set_name_handler,
+    add_sticker_to_user_owned_sticker_set, cancel_handler, create_new_sticker_set,
+    get_user_owned_sticker_set, process_wrong_sticker, source_handler, start_handler,
+    steal_sticker_handler, steal_sticker_set_handler, steal_sticker_set_name_handler,
 };
 
 async fn set_commands(bot: Bot) -> Result<(), HandlerError> {
@@ -27,9 +30,13 @@ async fn set_commands(bot: Bot) -> Result<(), HandlerError> {
     let source = BotCommand::new("source", "Show the source of the bot");
     let src = BotCommand::new("src", "Show the source of the bot");
     let steal = BotCommand::new("steal_pack", "Steal sticker pack");
+    let steal_sticker = BotCommand::new(
+        "add_sticker",
+        "Add sticker to a sticker pack stolen by this bot",
+    );
     let cancel = BotCommand::new("cancel", "Cancel last command");
 
-    let private_chats = [help, source, src, steal, cancel];
+    let private_chats = [help, source, src, steal, steal_sticker, cancel];
 
     bot.send(SetMyCommands::new(private_chats.clone()).scope(BotCommandScopeAllPrivateChats {}))
         .await?;
@@ -41,7 +48,11 @@ async fn set_commands(bot: Bot) -> Result<(), HandlerError> {
 async fn main() {
     tracing_subscriber::registry()
         .with(fmt::layer())
-        .with(EnvFilter::new("debug"))
+        .with(
+            EnvFilter::new("debug")
+                .add_directive("hyper=warn".parse().expect("Invalid directive"))
+                .add_directive("reqwest=warn".parse().expect("Invalid directive")),
+        )
         .init();
 
     let bot = Bot::from_env_by_key("BOT_TOKEN");
@@ -61,7 +72,7 @@ async fn main() {
         .message
         .register(start_handler::<MemoryStorage>)
         .filter(StateFilter::none())
-        .filter(Command::many(["steal_pack", "source", "src", "cancel"]).invert());
+        .filter(Command::many(["steal_pack", "add_sticker", "source", "src", "cancel"]).invert());
 
     // router to execute commands `/start` and `/help`
     router
@@ -84,7 +95,39 @@ async fn main() {
         .filter(ChatType::one(ChatTypeEnum::Private))
         .filter(Command::many(["cancel"]));
 
-    // router to execute command `/steal`
+    //                                COMMAND    `/steal_sticker`
+    // ------------------------------------------------------------------------------------------------------
+
+    // router to execute command `/steal_sticker`
+    router
+        .message
+        .register(steal_sticker_handler::<MemoryStorage>)
+        .filter(ChatType::one(ChatTypeEnum::Private))
+        .filter(Command::one("add_sticker"))
+        .filter(ContentType::one(ContentTypeEnum::Text))
+        .filter(StateFilter::none());
+
+    // router to get sticker set
+    router
+        .message
+        .register(get_user_owned_sticker_set::<MemoryStorage>)
+        .filter(ContentType::one(ContentTypeEnum::Sticker))
+        .filter(StateFilter::one(AddStickerState::StealSticker));
+
+    router
+        .message
+        .register(add_sticker_to_user_owned_sticker_set::<MemoryStorage>)
+        .filter(ContentType::one(ContentTypeEnum::Sticker))
+        .filter(StateFilter::one(
+            AddStickerState::AddStickerToUserOwnedStickerSet,
+        ));
+
+    // ------------------------------------------------------------------------------------------------------
+
+    //                                  COMMAND    `/steal_pack`
+    // ------------------------------------------------------------------------------------------------------
+
+    // router to execute command `/steal_pack`
     router
         .message
         .register(steal_sticker_set_handler::<MemoryStorage>)
@@ -100,12 +143,19 @@ async fn main() {
         .filter(ContentType::one(ContentTypeEnum::Sticker))
         .filter(StateFilter::one(StealStickerSetState::StealStickerSetName));
 
+    // ------------------------------------------------------------------------------------------------------
+
     // router that processed wrong content type (required type is sticker)
     router
         .message
         .register(process_wrong_sticker)
         .filter(ContentType::one(ContentTypeEnum::Sticker).invert())
-        .filter(StateFilter::one(StealStickerSetState::StealStickerSetName));
+        .filter(
+            StateFilter::many([StealStickerSetState::StealStickerSetName]).or(StateFilter::many([
+                AddStickerState::StealSticker,
+                AddStickerState::AddStickerToUserOwnedStickerSet,
+            ])),
+        );
 
     // router to create new sticker set
     router

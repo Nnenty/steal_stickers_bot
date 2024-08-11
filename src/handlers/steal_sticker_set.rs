@@ -49,7 +49,7 @@ pub async fn steal_sticker_set_name_handler<S: Storage>(
 
     bot.send(SendMessage::new(
         message.chat.id(),
-        format!("Then enter name for your new sticker pack (1-64 characters):"),
+        "Now enter name for your new sticker pack (1-64 characters):",
     ))
     .await?;
 
@@ -81,7 +81,7 @@ pub async fn create_new_sticker_set<S: Storage>(
         ))
         .await?;
 
-        return Ok(EventReturn::Cancel);
+        return Ok(EventReturn::Finish);
     } else if message.text.len() < 1 {
         bot.send(SendMessage::new(
             message.chat.id(),
@@ -89,7 +89,7 @@ pub async fn create_new_sticker_set<S: Storage>(
         ))
         .await?;
 
-        return Ok(EventReturn::Cancel);
+        return Ok(EventReturn::Finish);
     } else {
         message.text
     };
@@ -103,6 +103,8 @@ pub async fn create_new_sticker_set<S: Storage>(
         Some(sssn) => sssn,
 
         None => {
+            fsm.finish().await.map_err(Into::into)?;
+
             error!("An error occurds while parsing name of this sticker pack: name is empty.");
 
             bot.send(SendMessage::new(
@@ -111,9 +113,11 @@ pub async fn create_new_sticker_set<S: Storage>(
             ))
             .await?;
 
-            return Ok(EventReturn::Cancel);
+            return Ok(EventReturn::Finish);
         }
     };
+
+    fsm.finish().await.map_err(Into::into)?;
 
     let steal_sticker_set = bot
         .send(GetStickerSet::new(steal_sticker_set_name.as_ref()))
@@ -123,38 +127,31 @@ pub async fn create_new_sticker_set<S: Storage>(
 
     let steal_stickers_from_sticker_set = steal_sticker_set.stickers;
 
-    // finish is not at the end because if an error occurs, the state will not be cleared
-    fsm.finish().await.map_err(Into::into)?;
-
-    // prepare info for new sticker set
+    // prepare bot username for new sticker set
     let bot_username = bot
         .send(GetMe::new())
         .await?
         .username
         .expect("bot without username :/");
 
-    let user = message.from.expect("error while parsing user");
+    // prepare user to create for him new sticker set
+    let user_id = message.from.expect("error while parsing user").id;
 
     // prepare name for new sticker set and link to use it in message later
     let (mut set_name, mut set_link) = generate_sticker_set_name_and_link(11, &bot_username);
 
-    // prepare sticker format for new sticker set
-    let sticker_format = match sticker_format(&steal_stickers_from_sticker_set) {
-        Some(first_sticker) => first_sticker,
+    if let None = sticker_format(&steal_stickers_from_sticker_set) {
+        fsm.finish().await.map_err(Into::into)?;
 
-        None => {
-            fsm.finish().await.map_err(Into::into)?;
+        error!("empty sticker pack to copy");
 
-            error!("empty sticker pack to copy");
+        bot.send(SendMessage::new(
+            message.chat.id(),
+            "Sticker pack that you want to steal is empty. Please, try to send another pack!",
+        ))
+        .await?;
 
-            bot.send(SendMessage::new(
-                message.chat.id(),
-                "Sticker pack that you want to copy is empty. Please, try to send another pack!",
-            ))
-            .await?;
-
-            return Ok(EventReturn::Cancel);
-        }
+        return Ok(EventReturn::Finish);
     };
 
     bot.send(SendMessage::new(
@@ -182,14 +179,17 @@ pub async fn create_new_sticker_set<S: Storage>(
 
     while let Err(err) = bot
         .send(CreateNewStickerSet::new(
-            user.id,
+            user_id,
             &set_name,
             set_title.as_ref(),
             steal_stickers_from_sticker_set[..sticker_set_length]
                 .into_iter()
                 .map(|sticker| {
-                    let sticker_is =
-                        InputSticker::new(InputFile::id(sticker.file_id.as_ref()), sticker_format);
+                    let sticker_is = InputSticker::new(
+                        InputFile::id(sticker.file_id.as_ref()),
+                        &sticker_format(&steal_stickers_from_sticker_set)
+                            .expect("empty sticker pack to copy"),
+                    );
 
                     sticker_is.emoji_list(sticker.clone().emoji)
                 }),
@@ -219,7 +219,7 @@ pub async fn create_new_sticker_set<S: Storage>(
                     ))
                     .await?;
 
-                    return Ok(EventReturn::Cancel);
+                    return Ok(EventReturn::Finish);
                 }
             }
             err => {
@@ -237,9 +237,12 @@ pub async fn create_new_sticker_set<S: Storage>(
     }
     if more_than_50 {
         for sticker in &steal_stickers_from_sticker_set[50..] {
-            bot.send(AddStickerToSet::new(user.id, &set_name, {
-                let sticker_is =
-                    InputSticker::new(InputFile::id(sticker.file_id.as_ref()), sticker_format);
+            bot.send(AddStickerToSet::new(user_id, &set_name, {
+                let sticker_is = InputSticker::new(
+                    InputFile::id(sticker.file_id.as_ref()),
+                    &sticker_format(&steal_stickers_from_sticker_set)
+                        .expect("empty sticker pack to copy"),
+                );
 
                 sticker_is.emoji_list(sticker.clone().emoji)
             }))

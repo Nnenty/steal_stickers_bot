@@ -1348,6 +1348,7 @@ name = "steal_stickers_bot"
 version = "0.1.0"
 dependencies = [
  "random-string",
+ "serde_json",
  "telers",
  "tokio",
  "tracing",

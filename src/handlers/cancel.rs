@@ -19,5 +19,5 @@ pub async fn cancel_handler<S: Storage>(
     ))
     .await?;
 
-    Ok(EventReturn::Cancel)
+    Ok(EventReturn::Finish)
 }

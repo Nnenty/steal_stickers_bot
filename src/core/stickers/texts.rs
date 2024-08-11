@@ -9,7 +9,7 @@ pub fn send_sticker_set_message(
 ) -> String {
     format!(
         "
-        Then you have your own sticker pack {new_ss_url}!\nDon't forget to add them for yourself!\n(original {steal_ss_url})\n\nIf you want to update your \
+        Now you have your own sticker pack {new_ss_url}!\nDon't forget to add them for yourself!\n(original {steal_ss_url})\n\nIf you want to update your \
         new sticker pack, use official Telegram bot @Stickers, which does an excellent job of managing sticker packs.\n\
         (the name of your new sticker pack to handle it in @Stickers:\n{sticker_set_name})
         ",
@@ -26,6 +26,7 @@ pub fn send_start_message() -> String {
     /help - Show help message\n\
     /source or /src - Show source code of the bot\n\
     /steal_pack - Steal sticker pack\n\
+    /add_sticker - Add sticker to a sticker pack stolen by this bot\n\
     /cancel - Cancel last command
         "
     .to_owned()
