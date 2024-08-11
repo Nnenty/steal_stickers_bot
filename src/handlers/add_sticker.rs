@@ -149,8 +149,6 @@ pub async fn add_sticker_to_user_owned_sticker_set<S: Storage>(
                 }
             }
             err => {
-                fsm.finish().await.map_err(Into::into)?;
-
                 error!("error occureded while creating new sticker set: {}\n", err);
 
                 bot.send(SendMessage::new(
