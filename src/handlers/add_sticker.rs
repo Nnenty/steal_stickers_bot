@@ -142,7 +142,11 @@ pub async fn add_sticker_to_user_owned_sticker_set<S: Storage>(
                 }
             }
             err => {
-                error!("error occureded while creating new sticker set: {}\n", err);
+                error!(
+                    "error occureded while adding sticker sticker set: {}\n",
+                    err
+                );
+                debug!("sticker set name: {}", sticker_set_name);
 
                 bot.send(SendMessage::new(
                     message.chat.id(),

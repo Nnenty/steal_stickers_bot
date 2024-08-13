@@ -152,7 +152,7 @@ pub async fn create_new_sticker_set<S: Storage>(
         message.chat.id(),
         format!(
             "Creating sticker pack with name `{}` for you..\n(creating sticker packs \
-            containing more than 50 stickers can take up to a several minutes)",
+            containing more than 50 stickers can take up to a several minutes due to some internal limitations)",
             set_title
         ),
     ))
