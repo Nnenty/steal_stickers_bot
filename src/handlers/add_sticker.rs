@@ -4,7 +4,7 @@ use telers::{
     event::{telegram::HandlerResult, EventReturn},
     fsm::{Context, Storage},
     methods::{AddStickerToSet, GetStickerSet, SendMessage},
-    types::{InputFile, InputSticker, MessageSticker, MessageText, Sticker},
+    types::{InputFile, InputSticker, MessageSticker, MessageText},
     utils::text::html_text_link,
     Bot,
 };
@@ -19,46 +19,55 @@ pub async fn steal_sticker_handler<S: Storage>(
     message: MessageText,
     fsm: Context<S>,
 ) -> HandlerResult {
-    bot.send(
-        SendMessage::new(
-            message.chat.id(),
-            format!(
-                "Send me any sticker that will be added to your sticker pack stolen by this bot!\n\
-        (there is no list of your stickers that were stolen by this bot, because I'm too lazy \
-        to make a database. If you want a list here, write to {my_profile})",
-                my_profile = html_text_link("me", "https://t.me/nnenty")
-            ),
-        )
-        .parse_mode(ParseMode::HTML),
-    )
+    fsm.finish().await.map_err(Into::into)?;
+
+    bot.send(SendMessage::new(
+        message.chat.id(),
+        "Send me your sticker pack that stolen by this bot!\n\
+        (if you don't have the sticker packs stolen by this bot, first use the command /steal_pack)",
+    ))
     .await?;
 
-    fsm.set_state(AddStickerState::StealSticker)
+    fsm.set_state(AddStickerState::GetStolenStickerSet)
         .await
         .map_err(Into::into)?;
 
     Ok(EventReturn::Finish)
 }
 
-pub async fn get_user_owned_sticker_set<S: Storage>(
+pub async fn get_stolen_sticker_set<S: Storage>(
     bot: Bot,
     message: MessageSticker,
     fsm: Context<S>,
 ) -> HandlerResult {
-    let sticker = message.sticker;
+    let sticker_set_name = match message.sticker.set_name {
+        Some(sticker_set_name) => sticker_set_name,
+        None => {
+            bot.send(SendMessage::new(
+                message.chat.id(),
+                "This sticker is without the sticker pack! Try sending another sticker pack.",
+            ))
+            .await?;
+
+            return Ok(EventReturn::Finish);
+        }
+    };
 
     // bug in telers
-    fsm.set_value("steal_sticker", serde_json::to_string(&sticker).unwrap())
-        .await
-        .map_err(Into::into)?;
+    fsm.set_value(
+        "get_stolen_sticker_set",
+        serde_json::to_string(&sticker_set_name).unwrap(),
+    )
+    .await
+    .map_err(Into::into)?;
 
-    fsm.set_state(AddStickerState::AddStickerToUserOwnedStickerSet)
+    fsm.set_state(AddStickerState::AddStickerToStolenStickerSet)
         .await
         .map_err(Into::into)?;
 
     bot.send(SendMessage::new(
         message.chat.id(),
-        "Now send a sticker from the sticker pack that was stolen by this bot:",
+        "Now send me any sticker you want to add in stolen sticker pack:",
     ))
     .await?;
 
@@ -73,8 +82,8 @@ pub async fn add_sticker_to_user_owned_sticker_set<S: Storage>(
     fsm: Context<S>,
 ) -> HandlerResult {
     // bug in telers crate
-    let sticker_to_add: Sticker = serde_json::from_str::<Sticker>(
-        &fsm.get_value::<_, String>("steal_sticker")
+    let sticker_set_name: Box<str> = serde_json::from_str::<Box<str>>(
+        &fsm.get_value::<_, String>("get_stolen_sticker_set")
             .await
             .map_err(Into::into)?
             .expect("Sticker set name for sticker set user want steal should be set"),
@@ -83,24 +92,9 @@ pub async fn add_sticker_to_user_owned_sticker_set<S: Storage>(
 
     fsm.finish().await.map_err(Into::into)?;
 
-    let sticker_set_name = match message.sticker.set_name {
-        Some(sssn) => sssn,
+    let sticker_to_add = message.sticker;
 
-        None => {
-            error!("An error occurds while parsing name of this sticker pack: name is empty.");
-
-            bot.send(SendMessage::new(
-            message.chat.id(),
-            "An error occurds while parsing name of this sticker pack: name is empty;\nTry again.",
-        ))
-        .await?;
-
-            return Ok(EventReturn::Finish);
-        }
-    };
-
-    let sticker_format =
-        sticker_format(&[sticker_to_add.clone()]).expect("sticker without sticker :/");
+    let sticker_format = sticker_format(&[sticker_to_add.clone()]).expect("stickers not specifed");
 
     let user_id = message.from.expect("error while parsing user").id;
 
@@ -122,7 +116,6 @@ pub async fn add_sticker_to_user_owned_sticker_set<S: Storage>(
         .await
     {
         match err {
-            // if generated name is invalid or sticker set with this name already exists, regenerate it
             ErrorKind::Telegram(err) => {
                 if err.to_string() == r#"TelegramBadRequest: "Bad Request: STICKERSET_INVALID""# {
                     error!("file to add sticker: {}", err);
@@ -130,7 +123,7 @@ pub async fn add_sticker_to_user_owned_sticker_set<S: Storage>(
 
                     bot.send(SendMessage::new(
                         message.chat.id(),
-                        "Error. I didn't steal this sticker pack!\nTry calling /steal_pack and resending this sticker pack again.",
+                        "Error! I didn't steal this sticker pack!\nTry calling /steal_pack and send me stolen sticker pack.",
                     ))
                     .await?;
 
@@ -141,7 +134,7 @@ pub async fn add_sticker_to_user_owned_sticker_set<S: Storage>(
 
                     bot.send(SendMessage::new(
                         message.chat.id(),
-                        "Error occurded while creating new sticker pack :(\nTry again.",
+                        "Error occurded while adding sticker to sticker pack :(\nTry again.",
                     ))
                     .await?;
 
@@ -153,7 +146,7 @@ pub async fn add_sticker_to_user_owned_sticker_set<S: Storage>(
 
                 bot.send(SendMessage::new(
                     message.chat.id(),
-                    format!("Error occurded while creating new sticker pack :("),
+                    "Error occurded while adding sticker to sticker pack :(",
                 ))
                 .await?;
 

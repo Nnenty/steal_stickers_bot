@@ -21,7 +21,7 @@ pub use states::{AddStickerState, StealStickerSetState};
 mod handlers;
 use handlers::{
     add_sticker_to_user_owned_sticker_set, cancel_handler, create_new_sticker_set,
-    get_user_owned_sticker_set, process_wrong_sticker, source_handler, start_handler,
+    get_stolen_sticker_set, process_wrong_sticker, source_handler, start_handler,
     steal_sticker_handler, steal_sticker_set_handler, steal_sticker_set_name_handler,
 };
 
@@ -104,22 +104,21 @@ async fn main() {
         .register(steal_sticker_handler::<MemoryStorage>)
         .filter(ChatType::one(ChatTypeEnum::Private))
         .filter(Command::one("add_sticker"))
-        .filter(ContentType::one(ContentTypeEnum::Text))
-        .filter(StateFilter::none());
+        .filter(ContentType::one(ContentTypeEnum::Text));
 
     // router to get sticker set
     router
         .message
-        .register(get_user_owned_sticker_set::<MemoryStorage>)
+        .register(get_stolen_sticker_set::<MemoryStorage>)
         .filter(ContentType::one(ContentTypeEnum::Sticker))
-        .filter(StateFilter::one(AddStickerState::StealSticker));
+        .filter(StateFilter::one(AddStickerState::GetStolenStickerSet));
 
     router
         .message
         .register(add_sticker_to_user_owned_sticker_set::<MemoryStorage>)
         .filter(ContentType::one(ContentTypeEnum::Sticker))
         .filter(StateFilter::one(
-            AddStickerState::AddStickerToUserOwnedStickerSet,
+            AddStickerState::AddStickerToStolenStickerSet,
         ));
 
     // ------------------------------------------------------------------------------------------------------
@@ -133,8 +132,7 @@ async fn main() {
         .register(steal_sticker_set_handler::<MemoryStorage>)
         .filter(ChatType::one(ChatTypeEnum::Private))
         .filter(Command::one("steal_pack"))
-        .filter(ContentType::one(ContentTypeEnum::Text))
-        .filter(StateFilter::none());
+        .filter(ContentType::one(ContentTypeEnum::Text));
 
     // router to get sticker pack that user wants to steal
     router
@@ -142,6 +140,13 @@ async fn main() {
         .register(steal_sticker_set_name_handler::<MemoryStorage>)
         .filter(ContentType::one(ContentTypeEnum::Sticker))
         .filter(StateFilter::one(StealStickerSetState::StealStickerSetName));
+
+    // router to create new sticker set
+    router
+        .message
+        .register(create_new_sticker_set::<MemoryStorage>)
+        .filter(ContentType::one(ContentTypeEnum::Text))
+        .filter(StateFilter::one(StealStickerSetState::CreateNewStickerSet));
 
     // ------------------------------------------------------------------------------------------------------
 
@@ -152,17 +157,10 @@ async fn main() {
         .filter(ContentType::one(ContentTypeEnum::Sticker).invert())
         .filter(
             StateFilter::many([StealStickerSetState::StealStickerSetName]).or(StateFilter::many([
-                AddStickerState::StealSticker,
-                AddStickerState::AddStickerToUserOwnedStickerSet,
+                AddStickerState::GetStolenStickerSet,
+                AddStickerState::AddStickerToStolenStickerSet,
             ])),
         );
-
-    // router to create new sticker set
-    router
-        .message
-        .register(create_new_sticker_set::<MemoryStorage>)
-        .filter(ContentType::one(ContentTypeEnum::Text))
-        .filter(StateFilter::one(StealStickerSetState::CreateNewStickerSet));
 
     main_router.include(router);
 

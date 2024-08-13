@@ -2,15 +2,15 @@ use std::borrow::Cow;
 
 #[derive(Clone)]
 pub enum AddStickerState {
-    StealSticker,
-    AddStickerToUserOwnedStickerSet,
+    GetStolenStickerSet,
+    AddStickerToStolenStickerSet,
 }
 
 impl AddStickerState {
     const fn as_str(&self) -> &'static str {
         match self {
-            AddStickerState::StealSticker => "steal_sticker",
-            AddStickerState::AddStickerToUserOwnedStickerSet => {
+            AddStickerState::GetStolenStickerSet => "get_stolen_sticker_set",
+            AddStickerState::AddStickerToStolenStickerSet => {
                 "add_sticker_to_user_owned_sticker_set"
             }
         }

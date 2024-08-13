@@ -19,6 +19,8 @@ pub async fn steal_sticker_set_handler<S: Storage>(
     message: MessageText,
     fsm: Context<S>,
 ) -> HandlerResult {
+    fsm.finish().await.map_err(Into::into)?;
+
     bot.send(SendMessage::new(
         message.chat.id(),
         "Send me a sticker and I will steal a sticker pack containing that sticker for you!",
@@ -37,7 +39,18 @@ pub async fn steal_sticker_set_name_handler<S: Storage>(
     message: MessageSticker,
     fsm: Context<S>,
 ) -> HandlerResult {
-    let set_name = message.sticker.set_name;
+    let set_name = match message.sticker.set_name {
+        Some(sticker_set_name) => sticker_set_name,
+        None => {
+            bot.send(SendMessage::new(
+                message.chat.id(),
+                "This sticker is without the sticker pack! Try sending another sticker pack.",
+            ))
+            .await?;
+
+            return Ok(EventReturn::Finish);
+        }
+    };
 
     fsm.set_value("steal_sticker_set_name", set_name.clone())
         .await
@@ -94,28 +107,11 @@ pub async fn create_new_sticker_set<S: Storage>(
         message.text
     };
 
-    let steal_sticker_set_name: Box<str> = match fsm
+    let steal_sticker_set_name: Box<str> = fsm
         .get_value("steal_sticker_set_name")
         .await
         .map_err(Into::into)?
-        .expect("Sticker set name for sticker set user want steal should be set")
-    {
-        Some(sssn) => sssn,
-
-        None => {
-            fsm.finish().await.map_err(Into::into)?;
-
-            error!("An error occurds while parsing name of this sticker pack: name is empty.");
-
-            bot.send(SendMessage::new(
-                message.chat.id(),
-                "An error occurds while parsing name of this sticker pack: name is empty;\nTry again.",
-            ))
-            .await?;
-
-            return Ok(EventReturn::Finish);
-        }
-    };
+        .expect("Sticker set name for sticker set user want steal should be set");
 
     fsm.finish().await.map_err(Into::into)?;
 
@@ -134,15 +130,13 @@ pub async fn create_new_sticker_set<S: Storage>(
         .username
         .expect("bot without username :/");
 
-    // prepare user to create for him new sticker set
+    // prepare user id to create for him new sticker set
     let user_id = message.from.expect("error while parsing user").id;
 
     // prepare name for new sticker set and link to use it in message later
     let (mut set_name, mut set_link) = generate_sticker_set_name_and_link(11, &bot_username);
 
     if let None = sticker_format(&steal_stickers_from_sticker_set) {
-        fsm.finish().await.map_err(Into::into)?;
-
         error!("empty sticker pack to copy");
 
         bot.send(SendMessage::new(
@@ -197,7 +191,6 @@ pub async fn create_new_sticker_set<S: Storage>(
         .await
     {
         match err {
-            // if generated name is invalid or sticker set with this name already exists, regenerate it
             ErrorKind::Telegram(err) => {
                 if err.to_string()
                     == r#"TelegramBadRequest: "Bad Request: sticker set name is already occupied""#
@@ -235,7 +228,11 @@ pub async fn create_new_sticker_set<S: Storage>(
             }
         }
     }
+    tokio::time::sleep(Duration::from_millis(2111)).await;
+
     if more_than_50 {
+        debug!("adding the remaining stickers..");
+
         for sticker in &steal_stickers_from_sticker_set[50..] {
             bot.send(AddStickerToSet::new(user_id, &set_name, {
                 let sticker_is = InputSticker::new(
