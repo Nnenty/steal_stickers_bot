@@ -1,6 +1,7 @@
 use random_string::generate;
 use telers::types::Sticker;
 
+/// Return sticker format for each sticker.
 pub fn sticker_format(stickers: &[Sticker]) -> Option<String> {
     stickers.iter().next().map(|sticker| {
         if sticker.is_animated {
@@ -13,6 +14,8 @@ pub fn sticker_format(stickers: &[Sticker]) -> Option<String> {
     })
 }
 
+/// Generate new random sticker set name. This function assumes that the `length` field is a **positive integer greater than 2**!
+/// Otherwise errors may occur using the generated name.
 pub fn generate_sticker_set_name_and_link(length: usize, bot_username: &str) -> (String, String) {
     let charset = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890";
     let charset_without_nums = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ";

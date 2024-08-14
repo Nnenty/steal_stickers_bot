@@ -53,13 +53,11 @@ pub async fn get_stolen_sticker_set<S: Storage>(
         }
     };
 
-    // bug in telers
-    fsm.set_value(
-        "get_stolen_sticker_set",
-        serde_json::to_string(&sticker_set_name).unwrap(),
-    )
-    .await
-    .map_err(Into::into)?;
+    debug!("1 {sticker_set_name}");
+
+    fsm.set_value("get_stolen_sticker_set", sticker_set_name)
+        .await
+        .map_err(Into::into)?;
 
     fsm.set_state(AddStickerState::AddStickerToStolenStickerSet)
         .await
@@ -81,21 +79,23 @@ pub async fn add_sticker_to_user_owned_sticker_set<S: Storage>(
     message: MessageSticker,
     fsm: Context<S>,
 ) -> HandlerResult {
-    // bug in telers crate
-    let sticker_set_name: Box<str> = serde_json::from_str::<Box<str>>(
-        &fsm.get_value::<_, String>("get_stolen_sticker_set")
-            .await
-            .map_err(Into::into)?
-            .expect("Sticker set name for sticker set user want steal should be set"),
-    )
-    .unwrap();
+    // only panic if i'm forget call fsm.set_value() in function get_stolen_sticker_set()
+    let sticker_set_name: Box<str> = fsm
+        .get_value("get_stolen_sticker_set")
+        .await
+        .map_err(Into::into)?
+        .expect("Sticker set name for sticker set user want steal should be set");
+
+    debug!("2 {sticker_set_name}");
 
     fsm.finish().await.map_err(Into::into)?;
 
     let sticker_to_add = message.sticker;
 
+    // i'm explicitly passing the sticker so the slice can't be empty
     let sticker_format = sticker_format(&[sticker_to_add.clone()]).expect("stickers not specifed");
 
+    // only panic if messages uses in channels, but i'm using private filter in main function
     let user_id = message.from.expect("error while parsing user").id;
 
     bot.send(SendMessage::new(
@@ -154,7 +154,7 @@ pub async fn add_sticker_to_user_owned_sticker_set<S: Storage>(
                 ))
                 .await?;
 
-                return Err(err.into());
+                return Ok(EventReturn::Finish);
             }
         }
     }

@@ -107,6 +107,7 @@ pub async fn create_new_sticker_set<S: Storage>(
         message.text
     };
 
+    // only panic if i'm forget call fsm.set_value() in function steal_sticker_set_name_handler()
     let steal_sticker_set_name: Box<str> = fsm
         .get_value("steal_sticker_set_name")
         .await
@@ -123,30 +124,18 @@ pub async fn create_new_sticker_set<S: Storage>(
 
     let steal_stickers_from_sticker_set = steal_sticker_set.stickers;
 
-    // prepare bot username for new sticker set
+    // cant panic because bot cant be without username
     let bot_username = bot
         .send(GetMe::new())
         .await?
         .username
         .expect("bot without username :/");
 
-    // prepare user id to create for him new sticker set
-    let user_id = message.from.expect("error while parsing user").id;
+    // only panic if bot using in channels, but i'm using private filter in main function
+    let user_id = message.from.expect("user without id").id;
 
     // prepare name for new sticker set and link to use it in message later
     let (mut set_name, mut set_link) = generate_sticker_set_name_and_link(11, &bot_username);
-
-    if let None = sticker_format(&steal_stickers_from_sticker_set) {
-        error!("empty sticker pack to copy");
-
-        bot.send(SendMessage::new(
-            message.chat.id(),
-            "Sticker pack that you want to steal is empty. Please, try to send another pack!",
-        ))
-        .await?;
-
-        return Ok(EventReturn::Finish);
-    };
 
     bot.send(SendMessage::new(
         message.chat.id(),
@@ -179,10 +168,11 @@ pub async fn create_new_sticker_set<S: Storage>(
             steal_stickers_from_sticker_set[..sticker_set_length]
                 .into_iter()
                 .map(|sticker| {
-                    let sticker_is = InputSticker::new(
+                    // i explicitly ask the user to send me a sticker, so that the sticker set will contain at least 1 sticker
+                    let sticker_is: InputSticker = InputSticker::new(
                         InputFile::id(sticker.file_id.as_ref()),
                         &sticker_format(&steal_stickers_from_sticker_set)
-                            .expect("empty sticker pack to copy"),
+                            .expect("empty sticker set to copy"),
                     );
 
                     sticker_is.emoji_list(sticker.clone().emoji)
@@ -224,7 +214,7 @@ pub async fn create_new_sticker_set<S: Storage>(
                 ))
                 .await?;
 
-                return Err(err.into());
+                return Ok(EventReturn::Finish);
             }
         }
     }
@@ -235,10 +225,11 @@ pub async fn create_new_sticker_set<S: Storage>(
 
         for sticker in &steal_stickers_from_sticker_set[50..] {
             bot.send(AddStickerToSet::new(user_id, &set_name, {
+                // i explicitly ask the user to send me a sticker, so that the sticker set will contain at least 1 sticker
                 let sticker_is = InputSticker::new(
                     InputFile::id(sticker.file_id.as_ref()),
                     &sticker_format(&steal_stickers_from_sticker_set)
-                        .expect("empty sticker pack to copy"),
+                        .expect("empty sticker set to copy"),
                 );
 
                 sticker_is.emoji_list(sticker.clone().emoji)
