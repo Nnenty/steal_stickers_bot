@@ -4,7 +4,7 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-telers = { git = "https://github.com/Desiders/telers", rev = "9a44d10", features = ["memory-storage"]}
+telers = {version = "1.0.0-alpha.21", features = ["memory-storage"]}
 tokio = { version = "1.36", features = ["macros"]}
 serde_json = "1.0"
 
