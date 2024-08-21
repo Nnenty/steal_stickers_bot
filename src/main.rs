@@ -21,10 +21,10 @@ pub use states::{AddStickerState, StealStickerSetState};
 
 mod handlers;
 use handlers::{
-    add_sticker_to_user_owned_sticker_set, cancel_handler, create_new_sticker_set,
-    get_stolen_sticker_set, process_wrong_sticker as process_wrong_sticker_handler, source_handler,
-    start_handler, steal_sticker_handler, steal_sticker_set_handler,
-    steal_sticker_set_name_handler,
+    add_stickers::get_stickers_to_add, add_stickers_to_user_owned_sticker_set, cancel_handler,
+    create_new_sticker_set, get_stolen_sticker_set,
+    process_wrong_sticker as process_wrong_sticker_handler, source_handler, start_handler,
+    steal_sticker_handler, steal_sticker_set_handler, steal_sticker_set_name_handler,
 };
 
 async fn set_commands(bot: Bot) -> Result<(), HandlerError> {
@@ -33,7 +33,7 @@ async fn set_commands(bot: Bot) -> Result<(), HandlerError> {
     let src = BotCommand::new("src", "Show the source of the bot");
     let steal = BotCommand::new("steal_pack", "Steal sticker pack");
     let steal_sticker = BotCommand::new(
-        "add_sticker",
+        "add_stickers",
         "Add sticker to a sticker pack stolen by this bot",
     );
     let cancel = BotCommand::new("cancel", "Cancel last command");
@@ -70,13 +70,14 @@ async fn main() {
         .outer_middlewares
         .register(FSMContext::new(storage).strategy(Strategy::UserInChat));
 
+    // if user dont specify one of thats commands, send him help message
     void_command(
         &mut router,
         &[
             "source",
             "src",
             "steal_pack",
-            "add_sticker",
+            "add_stickers",
             "help",
             "cancel",
         ],
@@ -89,7 +90,7 @@ async fn main() {
 
     cancel_command(&mut router, &["cancel"]).await;
 
-    add_sticker_command(&mut router, "add_sticker").await;
+    add_stickers_command(&mut router, "add_stickers", "done").await;
 
     steal_sticker_set_command(&mut router, "steal_pack").await;
 
@@ -154,8 +155,12 @@ async fn cancel_command(router: &mut Router<Reqwest>, commands: &'static [&str])
         .filter(Command::many(commands.iter().map(ToOwned::to_owned)));
 }
 
-/// Executes Telegram command `/add_sticker`
-async fn add_sticker_command(router: &mut Router<Reqwest>, command: &'static str) {
+/// Executes Telegram command `/add_stickers`
+async fn add_stickers_command(
+    router: &mut Router<Reqwest>,
+    command: &'static str,
+    done_command: &'static str,
+) {
     router
         .message
         .register(steal_sticker_handler::<MemoryStorage>)
@@ -171,11 +176,16 @@ async fn add_sticker_command(router: &mut Router<Reqwest>, command: &'static str
 
     router
         .message
-        .register(add_sticker_to_user_owned_sticker_set::<MemoryStorage>)
+        .register(get_stickers_to_add::<MemoryStorage>)
         .filter(ContentType::one(ContentTypeEnum::Sticker))
-        .filter(StateFilter::one(
-            AddStickerState::AddStickerToStolenStickerSet,
-        ));
+        .filter(StateFilter::one(AddStickerState::GetStickersToAdd));
+
+    router
+        .message
+        .register(add_stickers_to_user_owned_sticker_set::<MemoryStorage>)
+        .filter(Command::one(done_command))
+        .filter(ContentType::one(ContentTypeEnum::Text))
+        .filter(StateFilter::one(AddStickerState::GetStickersToAdd));
 }
 
 /// Executes Telegram command `/steal_pack`
@@ -209,7 +219,7 @@ async fn process_wrong_sticker(router: &mut Router<Reqwest>) {
         .filter(
             StateFilter::one(StealStickerSetState::StealStickerSetName).or(StateFilter::many([
                 AddStickerState::GetStolenStickerSet,
-                AddStickerState::AddStickerToStolenStickerSet,
+                AddStickerState::GetStickersToAdd,
             ])),
         );
 }

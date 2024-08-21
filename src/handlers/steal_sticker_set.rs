@@ -7,6 +7,7 @@ use telers::{
     fsm::{Context, Storage},
     methods::{AddStickerToSet, CreateNewStickerSet, GetMe, GetStickerSet, SendMessage},
     types::{InputFile, InputSticker, Message, MessageSticker, MessageText},
+    utils::text::html_bold,
     Bot,
 };
 use tracing::{debug, error};
@@ -224,19 +225,35 @@ pub async fn create_new_sticker_set<S: Storage>(
         debug!("adding the remaining stickers..");
 
         for sticker in &steal_stickers_from_sticker_set[50..] {
-            bot.send(AddStickerToSet::new(user_id, &set_name, {
-                // i explicitly ask the user to send me a sticker, so that the sticker set will contain at least 1 sticker
-                let sticker_is = InputSticker::new(
-                    InputFile::id(sticker.file_id.as_ref()),
-                    &sticker_format(&steal_stickers_from_sticker_set)
-                        .expect("empty sticker set to copy"),
-                );
+            if let Err(err) = bot
+                .send(AddStickerToSet::new(user_id, &set_name, {
+                    // i explicitly ask the user to send me a sticker, so that the sticker set will contain at least 1 sticker
+                    let sticker_is = InputSticker::new(
+                        InputFile::id(sticker.file_id.as_ref()),
+                        &sticker_format(&steal_stickers_from_sticker_set)
+                            .expect("empty sticker set to copy"),
+                    );
 
-                sticker_is.emoji_list(sticker.clone().emoji)
-            }))
-            .await?;
+                    sticker_is.emoji_list(sticker.clone().emoji)
+                }))
+                .await
+            {
+                error!("error occureded while adding remaining stickers: {}\n", err);
 
-            tokio::time::sleep(Duration::from_millis(1111)).await;
+                bot.send(SendMessage::new(
+                    message.chat.id(),
+                    format!(
+                        "Error occurded while creating new sticker pack, {but_created}!\n\
+                        Due to an error, not all stickers may have been stolen, :(\nTry again.\n
+                        (preferably, remove this sticker pack by name from the message below using the official telegram bot @Stickers)",
+                        but_created = html_bold("but sticker pack was created")
+                    ),
+                ))
+                .await?;
+            }
+
+            // sleep because you can’t send telegram api requests more often than per second
+            tokio::time::sleep(Duration::from_millis(1010)).await;
         }
     };
 

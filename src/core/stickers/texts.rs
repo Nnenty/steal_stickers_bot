@@ -26,7 +26,7 @@ pub fn send_start_message() -> String {
     /help - Show help message\n\
     /source or /src - Show source code of the bot\n\
     /steal_pack - Steal sticker pack\n\
-    /add_sticker - Add sticker to a sticker pack stolen by this bot\n\
+    /add_stickers - Add sticker to a sticker pack stolen by this bot\n\
     /cancel - Cancel last command
         "
     .to_owned()
