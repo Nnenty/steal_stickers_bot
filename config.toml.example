@@ -1,0 +1,17 @@
+# DO NOT SHOW THIS FILE TO ANYONE! IF YOU ARE GOING TO POST
+# YOUR VERSION OF THIS BOT ANYWHERE (like GitHub), MAKE SURE 
+# THAT THERE IS A `cargo.toml` line IN THE .gitignore FILE!
+# (in the original bot in .gitignore this line is written by default)
+
+# remove .example from name of file
+
+[application]
+# should be integer number
+API_ID = 
+API_HASH = ""
+
+[auth]
+# enter number without '+'. Example: phone_number = "491721234567"
+phone_number = ""
+# enter only if you have two-step verification with a password enabled
+password = ""

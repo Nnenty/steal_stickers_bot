@@ -28,7 +28,7 @@ docker build -t steal_stickers_bot .
 docker run -e BOT_TOKEN=<YOUR_BOT_TOKEN> steal_stickers_bot ss_bot_container
 ```
 
-<strong>The bot should work.</strong>
+<strong>The bot should start work.</strong>
 
 If you encounter errors that are directly related to my code (docker errors, bot errors, etc.), please [open an Issue](https://github.com/Nnenty/steal_stickers_bot/issues/new). Thanks :)
 

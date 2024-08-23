@@ -1,3 +1,5 @@
+use serde::Deserialize;
+use telegram_app::authorize;
 use telers::{
     client::Reqwest,
     enums::{ChatType as ChatTypeEnum, ContentType as ContentTypeEnum},
@@ -10,15 +12,18 @@ use telers::{
     types::{BotCommand, BotCommandScopeAllPrivateChats},
     Bot, Dispatcher, Filter as _, Router,
 };
+
+use grammers_client::{client::bots::AuthorizationError, Client, Config};
+use grammers_session::Session;
+
 use tracing::debug;
 use tracing_subscriber::{fmt, layer::SubscriberExt as _, util::SubscriberInitExt as _, EnvFilter};
 
-// export modules
 pub mod core;
 pub mod states;
-// export states
+pub mod telegram_app;
 pub use states::{AddStickerState, StealStickerSetState};
-
+pub use telegram_app::SESSION_FILE;
 mod handlers;
 use handlers::{
     add_stickers::get_stickers_to_add, add_stickers_to_user_owned_sticker_set, cancel_handler,
@@ -26,6 +31,16 @@ use handlers::{
     process_wrong_sticker as process_wrong_sticker_handler, source_handler, start_handler,
     steal_sticker_handler, steal_sticker_set_handler, steal_sticker_set_name_handler,
 };
+
+async fn client_connect(api_id: i32, api_hash: String) -> Result<Client, AuthorizationError> {
+    Ok(Client::connect(Config {
+        session: Session::load_file_or_create(SESSION_FILE)?,
+        api_id,
+        api_hash,
+        params: Default::default(),
+    })
+    .await?)
+}
 
 async fn set_commands(bot: Bot) -> Result<(), HandlerError> {
     let help = BotCommand::new("help", "Show help message");
@@ -46,6 +61,22 @@ async fn set_commands(bot: Bot) -> Result<(), HandlerError> {
     Ok(())
 }
 
+#[derive(Deserialize)]
+pub struct ConfigToml {
+    pub application: Application,
+    pub auth: Auth,
+}
+#[derive(Deserialize)]
+pub struct Application {
+    pub api_id: i32,
+    pub api_hash: String,
+}
+#[derive(Deserialize)]
+pub struct Auth {
+    pub phone_number: String,
+    pub password: String,
+}
+
 #[tokio::main(flavor = "current_thread")]
 async fn main() {
     tracing_subscriber::registry()
@@ -56,6 +87,19 @@ async fn main() {
                 .add_directive("reqwest=warn".parse().expect("Invalid directive")),
         )
         .init();
+
+    let config = std::fs::read_to_string("config.toml").expect("wrong path");
+    let ConfigToml { application, .. } = toml::from_str(&config).unwrap();
+
+    debug!(application.api_id, application.api_hash);
+
+    let client = client_connect(application.api_id, application.api_hash)
+        .await
+        .expect("error connect to Telegram");
+
+    authorize(client, "config.toml")
+        .await
+        .expect("file to authorize");
 
     let bot = Bot::from_env_by_key("BOT_TOKEN");
 
@@ -95,8 +139,6 @@ async fn main() {
     steal_sticker_set_command(&mut router, "steal_pack").await;
 
     process_wrong_sticker(&mut router).await;
-
-    // router that processed wrong content type (required type is sticker)
 
     main_router.include(router);
 
