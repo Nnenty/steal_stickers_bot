@@ -1,5 +1,4 @@
 use std::io;
-use toml;
 use tracing::{debug, error};
 
 use grammers_client::{client::bots::AuthorizationError, Client, Config, SignInError};
@@ -7,7 +6,6 @@ use grammers_session::Session;
 
 mod constants;
 mod errors;
-use crate::ConfigToml;
 use constants::SESSION_FILE;
 
 pub async fn client_connect(api_id: i32, api_hash: String) -> Result<Client, AuthorizationError> {
@@ -20,12 +18,7 @@ pub async fn client_connect(api_id: i32, api_hash: String) -> Result<Client, Aut
     .await?)
 }
 
-pub async fn authorize(client: &Client, config_toml_path: &str) -> Result<(), errors::Error> {
-    let config = std::fs::read_to_string(config_toml_path)?;
-    let ConfigToml { auth, .. } = toml::from_str(&config)?;
-
-    let phone = auth.phone_number;
-
+pub async fn authorize(client: &Client, phone: &str, password: &str) -> Result<(), errors::Error> {
     let mut sign_out = false;
 
     if !client.is_authorized().await? {
@@ -38,7 +31,7 @@ pub async fn authorize(client: &Client, config_toml_path: &str) -> Result<(), er
 
         match client.sign_in(&token, code).await {
             Err(SignInError::PasswordRequired(password_token)) => {
-                let password = auth.password;
+                let password = password;
 
                 client
                     .check_password(password_token, password.trim())

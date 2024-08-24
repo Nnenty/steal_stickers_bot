@@ -1,8 +1,9 @@
 use std::time::Duration;
 
 use grammers_client::{client::bots::AuthorizationError, Client as ClientGrammers};
-use grammers_tl_types::{enums::{self, InputStickerSet}, types::{InputStickerSetShortName, self},
-    functions::messages::GetStickerSet as GetSickerSetGrammers};
+use grammers_tl_types::{enums::{self, InputStickerSet},
+        functions::messages::GetStickerSet as GetSickerSetGrammers,
+        types::{self, InputStickerSetShortName}};
 
 use telers::{
     enums::ParseMode,
@@ -307,6 +308,7 @@ async fn get_sticker_set_user_id(set_name: &str, client: ClientGrammers) -> Resu
         }) => id,
         _ => todo!(),
     };
+
     let mut user_id = set_id >> 32;
     if set_id >> 24 & 0xff == 1 {
         user_id += 0x100000000

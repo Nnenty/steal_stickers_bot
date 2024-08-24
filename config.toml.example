@@ -7,8 +7,8 @@
 
 [application]
 # should be integer number
-API_ID = 
-API_HASH = ""
+api_id = 
+api_hash = ""
 
 [auth]
 # enter number without '+'. Example: phone_number = "491721234567"

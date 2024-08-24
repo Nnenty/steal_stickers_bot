@@ -77,15 +77,15 @@ async fn main() {
         .init();
 
     let config = std::fs::read_to_string("config.toml").expect("wrong path");
-    let ConfigToml { application, .. } = toml::from_str(&config).unwrap();
+    let ConfigToml { application, auth } = toml::from_str(&config).unwrap();
 
     let client = client_connect(application.api_id, application.api_hash)
         .await
         .expect("error connect to Telegram");
 
-    authorize(&client, "config.toml")
+    authorize(&client, auth.phone_number.as_str(), auth.password.as_str())
         .await
-        .expect("file to authorize");
+        .expect("error to authorize");
 
     let bot = Bot::from_env_by_key("BOT_TOKEN");
 
