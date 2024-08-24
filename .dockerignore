@@ -9,3 +9,5 @@ LICENSE
 Cargo.lock
 
 Dockerfile
+
+config.toml.example

@@ -7,7 +7,7 @@ pub mod steal_sticker_set;
 
 // export functions from modules so as not to bother with the functions paths
 pub use add_stickers::{
-    add_stickers_to_user_owned_sticker_set, get_stolen_sticker_set, steal_sticker_handler,
+    add_stickers_handler, add_stickers_to_user_owned_sticker_set, get_stolen_sticker_set,
 };
 pub use cancel::cancel_handler;
 pub use source::source_handler;

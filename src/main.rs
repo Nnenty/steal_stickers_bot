@@ -1,5 +1,6 @@
+use middlewares::ClientApplication;
 use serde::Deserialize;
-use telegram_app::authorize;
+use telegram_application::{authorize, client_connect};
 use telers::{
     client::Reqwest,
     enums::{ChatType as ChatTypeEnum, ContentType as ContentTypeEnum},
@@ -13,34 +14,21 @@ use telers::{
     Bot, Dispatcher, Filter as _, Router,
 };
 
-use grammers_client::{client::bots::AuthorizationError, Client, Config};
-use grammers_session::Session;
-
 use tracing::debug;
 use tracing_subscriber::{fmt, layer::SubscriberExt as _, util::SubscriberInitExt as _, EnvFilter};
 
 pub mod core;
+pub mod middlewares;
 pub mod states;
-pub mod telegram_app;
+mod telegram_application;
 pub use states::{AddStickerState, StealStickerSetState};
-pub use telegram_app::SESSION_FILE;
 mod handlers;
 use handlers::{
-    add_stickers::get_stickers_to_add, add_stickers_to_user_owned_sticker_set, cancel_handler,
-    create_new_sticker_set, get_stolen_sticker_set,
-    process_wrong_sticker as process_wrong_sticker_handler, source_handler, start_handler,
-    steal_sticker_handler, steal_sticker_set_handler, steal_sticker_set_name_handler,
+    add_stickers::get_stickers_to_add, add_stickers_handler,
+    add_stickers_to_user_owned_sticker_set, cancel_handler, create_new_sticker_set,
+    get_stolen_sticker_set, process_wrong_sticker as process_wrong_sticker_handler, source_handler,
+    start_handler, steal_sticker_set_handler, steal_sticker_set_name_handler,
 };
-
-async fn client_connect(api_id: i32, api_hash: String) -> Result<Client, AuthorizationError> {
-    Ok(Client::connect(Config {
-        session: Session::load_file_or_create(SESSION_FILE)?,
-        api_id,
-        api_hash,
-        params: Default::default(),
-    })
-    .await?)
-}
 
 async fn set_commands(bot: Bot) -> Result<(), HandlerError> {
     let help = BotCommand::new("help", "Show help message");
@@ -91,21 +79,19 @@ async fn main() {
     let config = std::fs::read_to_string("config.toml").expect("wrong path");
     let ConfigToml { application, .. } = toml::from_str(&config).unwrap();
 
-    debug!(application.api_id, application.api_hash);
-
     let client = client_connect(application.api_id, application.api_hash)
         .await
         .expect("error connect to Telegram");
 
-    authorize(client, "config.toml")
+    authorize(&client, "config.toml")
         .await
         .expect("file to authorize");
 
     let bot = Bot::from_env_by_key("BOT_TOKEN");
 
-    let mut main_router = Router::new("main");
+    let mut main_router: Router<Reqwest> = Router::new("main");
 
-    // should private because in channels may be many errors
+    // only private because in channels may be many errors
     let mut router = Router::new("private");
 
     let storage = MemoryStorage::new();
@@ -113,6 +99,10 @@ async fn main() {
         .update
         .outer_middlewares
         .register(FSMContext::new(storage).strategy(Strategy::UserInChat));
+    router
+        .message
+        .outer_middlewares
+        .register(ClientApplication::new(client));
 
     // if user dont specify one of thats commands, send him help message
     void_command(
@@ -205,7 +195,7 @@ async fn add_stickers_command(
 ) {
     router
         .message
-        .register(steal_sticker_handler::<MemoryStorage>)
+        .register(add_stickers_handler::<MemoryStorage>)
         .filter(ChatType::one(ChatTypeEnum::Private))
         .filter(Command::one(command))
         .filter(ContentType::one(ContentTypeEnum::Text));

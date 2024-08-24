@@ -1,14 +1,26 @@
-use grammers_client::{Client, SignInError};
 use std::io;
 use toml;
 use tracing::{debug, error};
 
-pub mod constants;
+use grammers_client::{client::bots::AuthorizationError, Client, Config, SignInError};
+use grammers_session::Session;
+
+mod constants;
 mod errors;
 use crate::ConfigToml;
-pub use constants::SESSION_FILE;
+use constants::SESSION_FILE;
 
-pub async fn authorize(client: Client, config_toml_path: &str) -> Result<(), errors::Error> {
+pub async fn client_connect(api_id: i32, api_hash: String) -> Result<Client, AuthorizationError> {
+    Ok(Client::connect(Config {
+        session: Session::load_file_or_create(SESSION_FILE)?,
+        api_id,
+        api_hash,
+        params: Default::default(),
+    })
+    .await?)
+}
+
+pub async fn authorize(client: &Client, config_toml_path: &str) -> Result<(), errors::Error> {
     let config = std::fs::read_to_string(config_toml_path)?;
     let ConfigToml { auth, .. } = toml::from_str(&config)?;
 
@@ -47,7 +59,6 @@ pub async fn authorize(client: Client, config_toml_path: &str) -> Result<(), err
     }
 
     if sign_out {
-        // TODO revisit examples and get rid of "handle references" (also, this panics)
         drop(client.sign_out_disconnect().await);
     }
 

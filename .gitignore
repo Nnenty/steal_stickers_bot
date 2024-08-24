@@ -20,7 +20,7 @@ Cargo.lock
 #  option (not recommended) you can uncomment the following to ignore the entire idea folder.
 #.idea/
 
-# This filecontains important confidential information
+# This file contains important confidential information
 config.toml
 
 *.session

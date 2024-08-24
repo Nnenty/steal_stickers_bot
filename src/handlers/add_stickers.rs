@@ -1,7 +1,6 @@
 use std::time::Duration;
 
-use grammers_client::{client::bots::AuthorizationError, Client, Config};
-use grammers_session::Session;
+use grammers_client::{client::bots::AuthorizationError, Client as ClientGrammers};
 use grammers_tl_types::{enums::{self, InputStickerSet}, types::{InputStickerSetShortName, self},
     functions::messages::GetStickerSet as GetSickerSetGrammers};
 
@@ -15,12 +14,12 @@ use telers::{
     Bot,
 };
 
-use tracing::{debug, error, warn};
+use tracing::{debug, error};
 
-use crate::core::sticker_format;
+use crate::{core::sticker_format, middlewares::client_application::Client};
 use crate::AddStickerState;
 
-pub async fn steal_sticker_handler<S: Storage>(
+pub async fn add_stickers_handler<S: Storage>(
     bot: Bot,
     message: MessageText,
     fsm: Context<S>,
@@ -44,6 +43,7 @@ pub async fn steal_sticker_handler<S: Storage>(
 pub async fn get_stolen_sticker_set<S: Storage>(
     bot: Bot,
     message: MessageSticker,
+    client: Client,
     fsm: Context<S>,
 ) -> HandlerResult {
     let sticker_set_name = match message.sticker.set_name {
@@ -61,7 +61,8 @@ pub async fn get_stolen_sticker_set<S: Storage>(
 
     let sticker_set = bot.send(GetStickerSet::new(sticker_set_name.as_ref())).await?;
 
-    let bot_username = bot.send(GetMe::new()).await?.username.expect("bot without username");
+    // cant panic
+    let bot_username = bot.send(GetMe::new()).await?.username.expect("bot without username :/");
 
     if !sticker_set.name.ends_with(format!("by_{bot_username}").as_str()) {
         bot.send(SendMessage::new(
@@ -74,25 +75,24 @@ pub async fn get_stolen_sticker_set<S: Storage>(
         return Ok(EventReturn::Finish);
     }
 
-    let sticker_set_user_id = get_sticker_set_user_id(&sticker_set_name).await.unwrap();
+    let sticker_set_user_id = get_sticker_set_user_id(&sticker_set_name, client.0).await.unwrap();
+
+    debug!(sticker_set_user_id);
 
     // only panic if messages uses in channels, but i'm using private filter in main function
     let sender_user_id = message.from.expect("user not specified").id;
 
-    warn!("{}", sender_user_id);
+    debug!(sender_user_id);
 
     if sender_user_id != sticker_set_user_id{
         bot.send(SendMessage::new(
             message.chat.id(),
-            format!("You are not the owner of this sticker pack! Please, send {your} sticker pack.", your = html_bold("your")),
+            format!("You are not the owner of this sticker pack! Please, send {your} sticker pack.", your = html_bold("your stolen")),
         ).parse_mode(ParseMode::HTML),)
         .await?;
 
         return Ok(EventReturn::Finish);
     }
-
-    warn!("{}", sticker_set.name);
-
 
     let set_length = bot
         .send(GetStickerSet::new(sticker_set_name.as_ref()))
@@ -154,7 +154,8 @@ pub async fn get_stickers_to_add<S: Storage>(
                 .get_value("get_stolen_sticker_set")
                 .await
                 .map_err(Into::into)?
-                .expect("Sticker set name for sticker set user want steal should be set");
+                // in functions above checks whether a set of stickers has a name
+                .expect("Sticker set name for sticker set should be set");
 
             let set_length = bot
                 .send(GetStickerSet::new(sticker_set_name.as_ref()))
@@ -203,11 +204,11 @@ pub async fn add_stickers_to_user_owned_sticker_set<S: Storage>(
     message: MessageText,
     fsm: Context<S>,
 ) -> HandlerResult {
-    // only panic if i'm forget call fsm.set_value() in function get_stolen_sticker_set()
     let sticker_set_name: Box<str> = fsm
         .get_value("get_stolen_sticker_set")
         .await
         .map_err(Into::into)?
+        // only panic if i'm forget call fsm.set_value() in function get_stolen_sticker_set()
         .expect("Sticker set name for sticker set user want steal should be set");
 
     let stickers_to_add_vec: Vec<Sticker> = match fsm
@@ -244,6 +245,7 @@ pub async fn add_stickers_to_user_owned_sticker_set<S: Storage>(
             .send(AddStickerToSet::new(user_id, sticker_set_name.as_ref(), {
                 let sticker_is = InputSticker::new(
                     InputFile::id(sticker_to_add.file_id.as_ref()),
+                    // in this function just above the presence of stickers is checked so cant panic
                     sticker_format(&[sticker_to_add.clone()]).expect("stickers not specifed"),
                 );
 
@@ -289,22 +291,7 @@ pub async fn add_stickers_to_user_owned_sticker_set<S: Storage>(
     Ok(EventReturn::Finish)
 }
 
-async fn get_sticker_set_user_id(set_name: &str) -> Result<i64, AuthorizationError> {
-    let client = Client::connect(Config {
-        session: Session::load_file_or_create("stickers.session")?,
-        api_id: 1,
-        api_hash: "".to_string(),
-        params: Default::default(),
-    })
-    .await?;
-
-    match client.session().save_to_file("stickers.session") {
-        Ok(_) => {}
-        Err(e) => {
-            error!("NOTE: failed to save the session, will sign out when done: {e}");
-            }
-        }
-
+async fn get_sticker_set_user_id(set_name: &str, client: ClientGrammers) -> Result<i64, AuthorizationError> {
     let set_id = match client
         .invoke(&GetSickerSetGrammers {
             stickerset: InputStickerSet::ShortName(InputStickerSetShortName {
