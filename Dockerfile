@@ -1,4 +1,4 @@
-# I took this dockerfile config from ❤️ https://github.com/Desiders/get_anime_bot_rs ❤️
+# I took this dockerfile config from https://github.com/Desiders/get_anime_bot_rs
 
 FROM debian:bullseye-slim AS base
 RUN apt-get update \
@@ -22,5 +22,6 @@ RUN touch src/main.rs && cargo build --release
 FROM base AS final
 WORKDIR /app
 COPY --from=build /usr/src/app/target/release/steal_stickers_bot .
+COPY ./config.toml ./config.toml
 ENV RUST_BACKTRACE=full
 ENTRYPOINT ["/app/steal_stickers_bot"]

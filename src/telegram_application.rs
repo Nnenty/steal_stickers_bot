@@ -24,7 +24,7 @@ pub async fn authorize(client: &Client, phone: &str, password: &str) -> Result<(
     if !client.is_authorized().await? {
         let token = client.request_login_code(&phone).await?;
 
-        debug!("Enter the code you received:");
+        println!("Enter the code you received on your Telegram account:");
         let mut code = String::new();
         io::stdin().read_line(&mut code)?;
         let code = code.trim();
@@ -40,7 +40,7 @@ pub async fn authorize(client: &Client, phone: &str, password: &str) -> Result<(
             Ok(_) => (),
             Err(err) => return Err(err.into()),
         };
-        debug!("Signed in!");
+        debug!("signed in!");
 
         match client.session().save_to_file(SESSION_FILE) {
             Ok(_) => {}

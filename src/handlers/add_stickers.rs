@@ -44,7 +44,7 @@ pub async fn add_stickers_handler<S: Storage>(
 pub async fn get_stolen_sticker_set<S: Storage>(
     bot: Bot,
     message: MessageSticker,
-    client: Client,
+    Client(client): Client,
     fsm: Context<S>,
 ) -> HandlerResult {
     let sticker_set_name = match message.sticker.set_name {
@@ -76,7 +76,7 @@ pub async fn get_stolen_sticker_set<S: Storage>(
         return Ok(EventReturn::Finish);
     }
 
-    let sticker_set_user_id = get_sticker_set_user_id(&sticker_set_name, client.0).await.unwrap();
+    let sticker_set_user_id = get_sticker_set_user_id(&sticker_set_name, &client).await.unwrap();
 
     debug!(sticker_set_user_id);
 
@@ -292,7 +292,7 @@ pub async fn add_stickers_to_user_owned_sticker_set<S: Storage>(
     Ok(EventReturn::Finish)
 }
 
-async fn get_sticker_set_user_id(set_name: &str, client: ClientGrammers) -> Result<i64, AuthorizationError> {
+async fn get_sticker_set_user_id(set_name: &str, client: &ClientGrammers) -> Result<i64, AuthorizationError> {
     let set_id = match client
         .invoke(&GetSickerSetGrammers {
             stickerset: InputStickerSet::ShortName(InputStickerSetShortName {

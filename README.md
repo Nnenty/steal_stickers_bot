@@ -27,7 +27,7 @@ docker build -t steal_stickers_bot .
 4. Run docker container:
 > specify <b>your</b> bot token in env `BOT_TOKEN`!
 ```
-docker run -e BOT_TOKEN=<YOUR_BOT_TOKEN> steal_stickers_bot ss_bot_container
+docker run -it -e BOT_TOKEN=<YOUR_BOT_TOKEN> steal_stickers_bot ss_bot_container
 ```
 5. After you have launched Docker, a code should be sent to your Telegram account. Enter this code into your terminal and if you did everything correctly, <strong>the bot will start working.</strong>.
 
