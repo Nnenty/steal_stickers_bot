@@ -16,7 +16,7 @@ git clone https://github.com/Nnenty/steal_stickers_bot
 ```
 cd steal_stickers_bot
 ```
-6. Fill [config.toml.example](./config.toml.example) file with your information and remove `.example` from name.
+6. Fill [config.toml.example](./configs/config.toml.example) file with your information and remove `.example` from name.
 
 <h2>Run bot</h2>
 
