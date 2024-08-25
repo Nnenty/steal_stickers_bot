@@ -21,18 +21,34 @@ cd steal_stickers_bot
 <h2>Run bot</h2>
 
 
-1. Build docker image:
+1. Authorize client: 
 ```
-docker build -t steal_stickers_bot .
+just auth
 ```
-2. Run docker container:
-> specify <b>your</b> bot token in env `BOT_TOKEN`!
+*or if you want run it manually:*
 ```
-docker run -it --name steal_stickers_bot_container steal_stickers_bot
+docker build -t steal_stickers_bot . && \
+docker run -it --rm \
+        --mount type=bind,source=./configs,target=/app/configs \
+        --name steal_stickers_bot steal_stickers_bot \
+        auth
 ```
-3. After you have launched Docker, a code should be sent to your Telegram account. Enter this code into your terminal and if you did everything correctly, <strong>the bot will start working.</strong>.
+> After you have launched Docker, a code should be sent to your Telegram account.
+Enter this code into your terminal.
+2. Run bot:
+```
+docker compose up --build
+```
+*or if you want run it manually:*
+```
+docker run --rm \
+        --log-driver local --log-opt max-size=100m \
+        --mount type=bind,source=./configs,target=/app/configs \
+        --name steal_stickers_bot steal_stickers_bot \
+        run
+```
 
-If you encounter errors that are directly related to my code (docker errors, bot errors, etc.), please [open an Issue](https://github.com/Nnenty/steal_stickers_bot/issues/new). Thanks :)
+<strong>If you encounter errors that are directly related to my code (docker errors, bot errors, etc.), please [open an Issue](https://github.com/Nnenty/steal_stickers_bot/issues/new). Thanks :)</strong>
 
 
 <h2>License</h2>

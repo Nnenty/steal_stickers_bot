@@ -97,11 +97,12 @@ async fn main() {
         .with(
             EnvFilter::new("debug")
                 .add_directive("hyper=warn".parse().expect("Invalid directive"))
-                .add_directive("reqwest=warn".parse().expect("Invalid directive")),
+                .add_directive("reqwest=warn".parse().expect("Invalid directive"))
+                .add_directive("grammers_mtsender=warn".parse().expect("Invalid directive")),
         )
         .init();
 
-    let config = std::fs::read_to_string("config.toml").expect("wrong path");
+    let config = std::fs::read_to_string("configs/config.toml").expect("wrong path");
     let ConfigToml {
         application: Application { api_id, api_hash },
         auth: AuthCredentials {
@@ -124,7 +125,7 @@ async fn main() {
                 .expect("error to authorize");
         }
 
-        debug!("You authorized");
+        debug!("Client sucessfully authorized! Now run programm using command:\ndocker compose up --build");
 
         process::exit(0);
     }
@@ -134,7 +135,7 @@ async fn main() {
         .expect("error connect to Telegram");
 
     if Commands::Run == cli.command && !client.is_authorized().await.expect("error to authorize") {
-        error!("Client is not authorized! Run programm with command auth:\ncargo run -- auth && cargo run -- run");
+        error!("Client is not authorized! Run programm with command auth:\njust auth");
 
         process::exit(1);
     }

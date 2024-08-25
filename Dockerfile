@@ -22,6 +22,6 @@ RUN touch src/main.rs && cargo build --release
 FROM base AS final
 WORKDIR /app
 COPY --from=build /usr/src/app/target/release/steal_stickers_bot .
-COPY ./config.toml ./config.toml
+VOLUME /configs
 ENV RUST_BACKTRACE=full
 ENTRYPOINT ["/app/steal_stickers_bot"]

@@ -1,1 +1,1 @@
-pub const SESSION_FILE: &str = "stickers.session";
+pub const SESSION_FILE: &str = "configs/user.session";

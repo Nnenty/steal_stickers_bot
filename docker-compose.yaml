@@ -1,0 +1,13 @@
+services:
+  bot:
+    container_name: steal_stickers.bot
+    restart: "unless-stopped"
+    build:
+      context: .
+      dockerfile: "Dockerfile"
+    logging:
+      options:
+        max-size: "100m"
+    volumes:
+      - "./configs:/app/configs:rw"
+    command: run

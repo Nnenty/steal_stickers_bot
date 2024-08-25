@@ -78,12 +78,8 @@ pub async fn get_stolen_sticker_set<S: Storage>(
 
     let sticker_set_user_id = get_sticker_set_user_id(&sticker_set_name, &client).await.unwrap();
 
-    debug!(sticker_set_user_id);
-
     // only panic if messages uses in channels, but i'm using private filter in main function
     let sender_user_id = message.from.expect("user not specified").id;
-
-    debug!(sender_user_id);
 
     if sender_user_id != sticker_set_user_id{
         bot.send(SendMessage::new(

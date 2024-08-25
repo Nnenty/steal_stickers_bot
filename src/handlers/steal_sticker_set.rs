@@ -148,8 +148,6 @@ pub async fn create_new_sticker_set<S: Storage>(
     ))
     .await?;
 
-    debug!("set name: {} set title: {}", set_name, set_title);
-
     let (steal_stickers_from_sticker_set, sticker_set_length, more_than_50) =
         if steal_stickers_from_sticker_set.len() > 50 {
             (Box::new(&steal_stickers_from_sticker_set[..]), 50, true)
@@ -222,8 +220,6 @@ pub async fn create_new_sticker_set<S: Storage>(
     tokio::time::sleep(Duration::from_millis(2111)).await;
 
     if more_than_50 {
-        debug!("adding the remaining stickers..");
-
         for sticker in &steal_stickers_from_sticker_set[50..] {
             if let Err(err) = bot
                 .send(AddStickerToSet::new(user_id, &set_name, {
