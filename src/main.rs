@@ -1,6 +1,5 @@
-use middlewares::ClientApplication;
-use serde::Deserialize;
-use telegram_application::{authorize, client_connect};
+use std::process;
+
 use telers::{
     client::Reqwest,
     enums::{ChatType as ChatTypeEnum, ContentType as ContentTypeEnum},
@@ -14,21 +13,27 @@ use telers::{
     Bot, Dispatcher, Filter as _, Router,
 };
 
-use tracing::debug;
+use tracing::{debug, error};
 use tracing_subscriber::{fmt, layer::SubscriberExt as _, util::SubscriberInitExt as _, EnvFilter};
 
+use clap::{Parser, Subcommand};
+use serde::Deserialize;
+use toml;
+
 pub mod core;
+mod handlers;
 pub mod middlewares;
 pub mod states;
 mod telegram_application;
-pub use states::{AddStickerState, StealStickerSetState};
-mod handlers;
 use handlers::{
     add_stickers::get_stickers_to_add, add_stickers_handler,
     add_stickers_to_user_owned_sticker_set, cancel_handler, create_new_sticker_set,
     get_stolen_sticker_set, process_wrong_sticker as process_wrong_sticker_handler, source_handler,
     start_handler, steal_sticker_set_handler, steal_sticker_set_name_handler,
 };
+use middlewares::ClientApplication;
+pub use states::{AddStickerState, StealStickerSetState};
+use telegram_application::{authorize, client_connect};
 
 async fn set_commands(bot: Bot) -> Result<(), HandlerError> {
     let help = BotCommand::new("help", "Show help message");
@@ -50,19 +55,39 @@ async fn set_commands(bot: Bot) -> Result<(), HandlerError> {
 }
 
 #[derive(Deserialize)]
-pub struct ConfigToml {
-    pub application: Application,
-    pub auth: Auth,
+struct ConfigToml {
+    bot: BotConfig,
+    application: Application,
+    auth: AuthCredentials,
 }
 #[derive(Deserialize)]
-pub struct Application {
-    pub api_id: i32,
-    pub api_hash: String,
+struct BotConfig {
+    bot_token: String,
 }
 #[derive(Deserialize)]
-pub struct Auth {
-    pub phone_number: String,
-    pub password: String,
+struct Application {
+    api_id: i32,
+    api_hash: String,
+}
+#[derive(Deserialize)]
+struct AuthCredentials {
+    phone_number: String,
+    password: String,
+}
+
+#[derive(Parser)]
+#[command(version, about, long_about = None)]
+struct Cli {
+    #[command(subcommand)]
+    command: Commands,
+}
+
+#[derive(Subcommand, PartialEq)]
+enum Commands {
+    /// Authorize client and exit
+    Auth,
+    /// Run programm (exit if client not authorized)
+    Run,
 }
 
 #[tokio::main(flavor = "current_thread")]
@@ -77,17 +102,44 @@ async fn main() {
         .init();
 
     let config = std::fs::read_to_string("config.toml").expect("wrong path");
-    let ConfigToml { application, auth } = toml::from_str(&config).unwrap();
+    let ConfigToml {
+        application: Application { api_id, api_hash },
+        auth: AuthCredentials {
+            phone_number,
+            password,
+        },
+        bot: BotConfig { bot_token },
+    } = toml::from_str(&config).unwrap();
 
-    let client = client_connect(application.api_id, application.api_hash)
+    let cli = Cli::parse();
+
+    if Commands::Auth == cli.command {
+        let client = client_connect(api_id, api_hash)
+            .await
+            .expect("error connect to Telegram");
+
+        if !client.is_authorized().await.expect("error to authorize") {
+            authorize(&client, phone_number.as_str(), password.as_str())
+                .await
+                .expect("error to authorize");
+        }
+
+        debug!("You authorized");
+
+        process::exit(0);
+    }
+
+    let client = client_connect(api_id, api_hash)
         .await
         .expect("error connect to Telegram");
 
-    authorize(&client, auth.phone_number.as_str(), auth.password.as_str())
-        .await
-        .expect("error to authorize");
+    if Commands::Run == cli.command && !client.is_authorized().await.expect("error to authorize") {
+        error!("Client is not authorized! Run programm with command auth:\ncargo run -- auth && cargo run -- run");
 
-    let bot = Bot::from_env_by_key("BOT_TOKEN");
+        process::exit(1);
+    }
+
+    let bot = Bot::new(bot_token);
 
     let mut main_router: Router<Reqwest> = Router::new("main");
 

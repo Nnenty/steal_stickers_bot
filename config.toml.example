@@ -5,6 +5,9 @@
 
 # remove .example from name of file
 
+[bot]
+bot_token = ""
+
 [application]
 # should be integer number
 api_id = 

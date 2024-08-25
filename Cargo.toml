@@ -19,3 +19,4 @@ tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 toml = "0.8"
 thiserror = "1"
 async-trait = "0.1"
+clap = { version = "4.5.16", features = ["derive"] }
