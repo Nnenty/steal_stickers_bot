@@ -5,7 +5,7 @@
 
 <h2>Preparing</h2>
 
-1. Install [Docker](https://docs.docker.com/get-docker/).
+1. Install [Docker](https://docs.docker.com/get-docker/) and [Docker Compose](https://docs.docker.com/compose/install/).
 2. Create your Telegram application [following instructions](https://core.telegram.org/api/obtaining_api_id).
 3. Get the bot token from [@BotFather](https://t.me/BotFather).
 4. Clone our repository:
@@ -41,7 +41,7 @@ docker compose up --build
 ```
 *or if you want run it manually:*
 ```
-docker run --rm \
+docker run \
         --log-driver local --log-opt max-size=100m \
         --mount type=bind,source=./configs,target=/app/configs \
         --name steal_stickers_bot steal_stickers_bot \
@@ -54,4 +54,4 @@ docker run --rm \
 <h2>License</h2>
 
 Licensed under:
-- MIT License ([LICENSE](./LICENSE))
+- MIT License ([LICENSE](./LICENSE) or https://opensource.org/license/MIT)

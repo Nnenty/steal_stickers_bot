@@ -24,7 +24,7 @@ pub async fn steal_sticker_set_handler<S: Storage>(
 
     bot.send(SendMessage::new(
         message.chat.id(),
-        "Send me a sticker and I will steal a sticker pack containing that sticker for you!",
+        "Send me a sticker and I will steal a sticker pack containing that sticker for you:",
     ))
     .await?;
 
@@ -45,7 +45,7 @@ pub async fn steal_sticker_set_name_handler<S: Storage>(
         None => {
             bot.send(SendMessage::new(
                 message.chat.id(),
-                "This sticker is without the sticker pack! Try sending another sticker pack.",
+                "This sticker is without the sticker pack! Try to send another sticker pack:",
             ))
             .await?;
 
@@ -70,7 +70,7 @@ pub async fn steal_sticker_set_name_handler<S: Storage>(
     Ok(EventReturn::Finish)
 }
 
-pub async fn process_wrong_sticker(bot: Bot, message: Message) -> HandlerResult {
+pub async fn process_wrong_type(bot: Bot, message: Message) -> HandlerResult {
     bot.send(SendMessage::new(
         message.chat().id(),
         "Please, send me a sticker.",

@@ -28,7 +28,7 @@ mod telegram_application;
 use handlers::{
     add_stickers::get_stickers_to_add, add_stickers_handler,
     add_stickers_to_user_owned_sticker_set, cancel_handler, create_new_sticker_set,
-    get_stolen_sticker_set, process_wrong_sticker as process_wrong_sticker_handler, source_handler,
+    get_stolen_sticker_set, process_wrong_type as process_wrong_type_handler, source_handler,
     start_handler, steal_sticker_set_handler, steal_sticker_set_name_handler,
 };
 use middlewares::ClientApplication;
@@ -42,7 +42,7 @@ async fn set_commands(bot: Bot) -> Result<(), HandlerError> {
     let steal = BotCommand::new("steal_pack", "Steal sticker pack");
     let steal_sticker = BotCommand::new(
         "add_stickers",
-        "Add sticker to a sticker pack stolen by this bot",
+        "Add stickers to a sticker pack stolen by this bot",
     );
     let cancel = BotCommand::new("cancel", "Cancel last command");
 
@@ -114,26 +114,19 @@ async fn main() {
 
     let cli = Cli::parse();
 
-    if Commands::Auth == cli.command {
-        let client = client_connect(api_id, api_hash)
-            .await
-            .expect("error connect to Telegram");
+    let client = client_connect(api_id, api_hash)
+        .await
+        .expect("error connect to Telegram");
 
-        if !client.is_authorized().await.expect("error to authorize") {
-            authorize(&client, phone_number.as_str(), password.as_str())
-                .await
-                .expect("error to authorize");
-        }
+    if Commands::Auth == cli.command {
+        authorize(&client, phone_number.as_str(), password.as_str())
+            .await
+            .expect("error to authorize");
 
         debug!("Client sucessfully authorized! Now run programm using command:\ndocker compose up --build");
 
         process::exit(0);
     }
-
-    let client = client_connect(api_id, api_hash)
-        .await
-        .expect("error connect to Telegram");
-
     if Commands::Run == cli.command && !client.is_authorized().await.expect("error to authorize") {
         error!("Client is not authorized! Run programm with command auth:\njust auth");
 
@@ -181,7 +174,7 @@ async fn main() {
 
     steal_sticker_set_command(&mut router, "steal_pack").await;
 
-    process_wrong_sticker(&mut router).await;
+    process_wrong_type(&mut router, ContentTypeEnum::Sticker).await;
 
     main_router.include(router);
 
@@ -295,12 +288,12 @@ async fn steal_sticker_set_command(router: &mut Router<Reqwest>, command: &'stat
         .filter(StateFilter::one(StealStickerSetState::CreateNewStickerSet));
 }
 
-/// If user enter wrong content type, but the request type is Sticker, this handler will process it
-async fn process_wrong_sticker(router: &mut Router<Reqwest>) {
+/// If user enter wrong content type, but the request type is <content_type>, this handler will process it
+async fn process_wrong_type(router: &mut Router<Reqwest>, content_type: ContentTypeEnum) {
     router
         .message
-        .register(process_wrong_sticker_handler)
-        .filter(ContentType::one(ContentTypeEnum::Sticker).invert())
+        .register(process_wrong_type_handler)
+        .filter(ContentType::one(content_type).invert())
         .filter(
             StateFilter::one(StealStickerSetState::StealStickerSetName).or(StateFilter::many([
                 AddStickerState::GetStolenStickerSet,
