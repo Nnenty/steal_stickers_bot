@@ -25,6 +25,8 @@ cd steal_stickers_bot
 ```
 just auth
 ```
+> [Download justfile](https://github.com/casey/just?tab=readme-ov-file#pre-built-binaries)
+
 *or if you want run it manually:*
 ```
 docker build -t steal_stickers_bot . && \
