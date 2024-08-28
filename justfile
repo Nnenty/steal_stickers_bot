@@ -14,3 +14,9 @@ run: docker-build
         --mount type=bind,source=./configs,target=/app/configs \
         --name steal_stickers_bot steal_stickers_bot \
         run
+
+compose-run:
+    docker compose up
+
+compose-run-build:
+    docker compose up --build
