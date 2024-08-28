@@ -1,5 +1,3 @@
-use std::sync::Arc;
-
 use async_trait::async_trait;
 use chrono::{NaiveTime, Utc};
 use grammers_client::Client as ClientGrammers;
@@ -26,7 +24,7 @@ impl From<ClientGrammers> for Client {
 
 pub struct ClientApplication {
     pub key: &'static str,
-    pub client: Arc<Mutex<ClientGrammers>>,
+    pub client: Mutex<ClientGrammers>,
     pub last_update_time: Mutex<NaiveTime>,
     pub api_id: i32,
     pub api_hash: String,
@@ -36,7 +34,7 @@ impl ClientApplication {
     pub fn new(client: ClientGrammers, api_id: i32, api_hash: String) -> Self {
         Self {
             key: "client",
-            client: Arc::new(Mutex::new(client)),
+            client: Mutex::new(client),
             last_update_time: Mutex::new(Utc::now().time()),
             api_id,
             api_hash,
@@ -58,12 +56,13 @@ impl OuterMiddleware for ClientApplication {
                 .await
                 .unwrap();
 
-            let mut lock = self.client.as_ref().lock().await;
+            let mut lock = self.client.lock().await;
+
             *lock = client.clone();
 
             request.context.insert(self.key, Box::new(client));
         } else {
-            let client = (*self.client.as_ref().lock().await).clone();
+            let client = (*self.client.lock().await).clone();
 
             request.context.insert(self.key, Box::new(client));
         }

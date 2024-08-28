@@ -4,15 +4,14 @@ docker-build:
 auth: docker-build
     docker run -it --rm \
         --mount type=bind,source=./configs,target=/app/configs \
-        --name steal_stickers_bot steal_stickers_bot \
+        --name steal_stickers_bot steal_stickers.bot \
         auth
 
-# If you want test your bot manually
 run: docker-build
     docker run --rm \
         --log-driver local --log-opt max-size=100m \
         --mount type=bind,source=./configs,target=/app/configs \
-        --name steal_stickers_bot steal_stickers_bot \
+        --name steal_stickers_bot steal_stickers.bot \
         run
 
 compose-run:

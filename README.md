@@ -39,7 +39,7 @@ docker run -it --rm \
 Enter this code into your terminal.
 2. Run bot:
 ```
-docker compose up --build
+just compose-run
 ```
 *or if you want run it manually:*
 ```

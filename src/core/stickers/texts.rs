@@ -9,7 +9,8 @@ pub fn send_sticker_set_message(
 ) -> String {
     format!(
         "
-        Now you have your own sticker pack {new_ss_url}!\nDon't forget to add them for yourself!\n(original {steal_ss_url})\n\nIf you want to update your \
+        Now you have your own sticker pack {new_ss_url}! You can add stickers to this pack using command /add_stickers\n\
+        Don't forget to add them for yourself!\n(original {steal_ss_url})\n\nIf you want to update your \
         new sticker pack, use official Telegram bot @Stickers, which does an excellent job of managing sticker packs.\n\
         (the name of your new sticker pack to handle it in @Stickers:\n{sticker_set_name})
         ",
