@@ -114,7 +114,7 @@ async fn main() {
 
     let cli = Cli::parse();
 
-    let client = client_connect(api_id, api_hash)
+    let client = client_connect(api_id, api_hash.clone())
         .await
         .expect("error connect to Telegram");
 
@@ -148,7 +148,7 @@ async fn main() {
     router
         .message
         .outer_middlewares
-        .register(ClientApplication::new(client));
+        .register(ClientApplication::new(client, api_id, api_hash));
 
     // if user dont specify one of thats commands, send him help message
     void_command(

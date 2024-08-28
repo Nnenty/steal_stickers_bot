@@ -1,4 +1,7 @@
+use std::sync::Arc;
+
 use async_trait::async_trait;
+use chrono::{NaiveTime, Utc};
 use grammers_client::Client as ClientGrammers;
 use telers::{
     errors::EventErrorKind,
@@ -7,6 +10,9 @@ use telers::{
     router::Request,
     FromContext,
 };
+use tokio::sync::Mutex;
+
+use crate::telegram_application::client_connect;
 
 #[derive(Debug, Clone, FromContext)]
 #[context(key = "client", from = ClientGrammers)]
@@ -20,14 +26,20 @@ impl From<ClientGrammers> for Client {
 
 pub struct ClientApplication {
     pub key: &'static str,
-    pub data: ClientGrammers,
+    pub client: Arc<Mutex<ClientGrammers>>,
+    pub last_update_time: Mutex<NaiveTime>,
+    pub api_id: i32,
+    pub api_hash: String,
 }
 
 impl ClientApplication {
-    pub const fn new(client: ClientGrammers) -> ClientApplication {
+    pub fn new(client: ClientGrammers, api_id: i32, api_hash: String) -> Self {
         Self {
             key: "client",
-            data: client,
+            client: Arc::new(Mutex::new(client)),
+            last_update_time: Mutex::new(Utc::now().time()),
+            api_id,
+            api_hash,
         }
     }
 }
@@ -35,9 +47,26 @@ impl ClientApplication {
 #[async_trait]
 impl OuterMiddleware for ClientApplication {
     async fn call(&self, request: Request) -> Result<MiddlewareResponse, EventErrorKind> {
-        request
-            .context
-            .insert(self.key, Box::new(self.data.clone()));
+        let now = Utc::now().time();
+
+        let mut lock = self.last_update_time.lock().await;
+
+        if (now - *lock).num_minutes() >= 10 {
+            *lock = now;
+
+            let client = client_connect(self.api_id, self.api_hash.clone())
+                .await
+                .unwrap();
+
+            let mut lock = self.client.as_ref().lock().await;
+            *lock = client.clone();
+
+            request.context.insert(self.key, Box::new(client));
+        } else {
+            let client = (*self.client.as_ref().lock().await).clone();
+
+            request.context.insert(self.key, Box::new(client));
+        }
 
         Ok((request, EventReturn::default()))
     }

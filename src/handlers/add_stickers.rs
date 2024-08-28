@@ -1,9 +1,11 @@
 use std::time::Duration;
 
-use grammers_client::{client::bots::AuthorizationError, Client as ClientGrammers};
-use grammers_tl_types::{enums::{self, InputStickerSet},
-        functions::messages::GetStickerSet as GetSickerSetGrammers,
-        types::{self, InputStickerSetShortName}};
+use grammers_client::{client::bots::InvocationError, Client as ClientGrammers};
+use grammers_tl_types::{
+    enums::{self, InputStickerSet},
+    functions::messages::GetStickerSet as GetSickerSetGrammers,
+    types::{self, InputStickerSetShortName},
+};
 
 use telers::{
     enums::ParseMode,
@@ -11,14 +13,14 @@ use telers::{
     fsm::{Context, Storage},
     methods::{AddStickerToSet, GetMe, GetStickerSet, SendMessage},
     types::{InputFile, InputSticker, MessageSticker, MessageText, Sticker},
-    utils::text::{html_bold, html_text_link, },
+    utils::text::{html_bold, html_text_link},
     Bot,
 };
 
 use tracing::{debug, error};
 
-use crate::{core::sticker_format, middlewares::client_application::Client};
 use crate::AddStickerState;
+use crate::{core::sticker_format, middlewares::client_application::Client};
 
 pub async fn add_stickers_handler<S: Storage>(
     bot: Bot,
@@ -60,12 +62,21 @@ pub async fn get_stolen_sticker_set<S: Storage>(
         }
     };
 
-    let sticker_set = bot.send(GetStickerSet::new(sticker_set_name.as_ref())).await?;
+    let sticker_set = bot
+        .send(GetStickerSet::new(sticker_set_name.as_ref()))
+        .await?;
 
     // cant panic
-    let bot_username = bot.send(GetMe::new()).await?.username.expect("bot without username :/");
+    let bot_username = bot
+        .send(GetMe::new())
+        .await?
+        .username
+        .expect("bot without username :/");
 
-    if !sticker_set.name.ends_with(format!("by_{bot_username}").as_str()) {
+    if !sticker_set
+        .name
+        .ends_with(format!("by_{bot_username}").as_str())
+    {
         bot.send(SendMessage::new(
             message.chat.id(),
             "I didnt create this sticker pack, which means i wont be able to change it according to Telegram rules!\n\
@@ -76,17 +87,51 @@ pub async fn get_stolen_sticker_set<S: Storage>(
         return Ok(EventReturn::Finish);
     }
 
-    let sticker_set_user_id = get_sticker_set_user_id(&sticker_set_name, &client).await.unwrap();
+    let sticker_set_user_id = match tokio::time::timeout(
+        Duration::from_secs(10),
+        get_sticker_set_user_id(&sticker_set_name, &client),
+    )
+    .await{
+        Ok(Ok(set_id)) => set_id,
+        Ok(Err(err)) => {
+            error!(%err, "Failed to get sticker set user id");
+
+            bot.send(SendMessage::new(
+                message.chat.id(),
+                "Sorry, an error occurded! Try again:",
+            ))
+            .await?;
+
+            return Ok(EventReturn::Finish);
+        }
+        Err(err) => {
+            error!(%err, "Too long time to get sticker set user id");
+
+            bot.send(SendMessage::new(
+                message.chat.id(),
+                "Sorry, an error occurded! Try again:",
+            ))
+            .await?;
+
+            return Ok(EventReturn::Finish);
+        }
+    };
 
     // only panic if messages uses in channels, but i'm using private filter in main function
     let sender_user_id = message.from.expect("user not specified").id;
 
-    if sender_user_id != sticker_set_user_id{
-        bot.send(SendMessage::new(
-            message.chat.id(),
-            format!("You are not the owner of this sticker pack! Please, send {your} sticker pack \
-            (you also can steal this sticker pack using command /steal_pack):", your = html_bold("your stolen")),
-        ).parse_mode(ParseMode::HTML),)
+    if sender_user_id != sticker_set_user_id {
+        bot.send(
+            SendMessage::new(
+                message.chat.id(),
+                format!(
+                    "You are not the owner of this sticker pack! Please, send {your} sticker pack \
+            (you also can steal this sticker pack using command /steal_pack):",
+                    your = html_bold("your stolen")
+                ),
+            )
+            .parse_mode(ParseMode::HTML),
+        )
         .await?;
 
         return Ok(EventReturn::Finish);
@@ -251,7 +296,10 @@ pub async fn add_stickers_to_user_owned_sticker_set<S: Storage>(
             }))
             .await
         {
-            error!("error occureded while adding sticker to sticker set: {}\n",err);
+            error!(
+                "error occureded while adding sticker to sticker set: {}\n",
+                err
+            );
             debug!("sticker set name: {}", sticker_set_name);
 
             bot.send(SendMessage::new(
@@ -289,7 +337,10 @@ pub async fn add_stickers_to_user_owned_sticker_set<S: Storage>(
     Ok(EventReturn::Finish)
 }
 
-async fn get_sticker_set_user_id(set_name: &str, client: &ClientGrammers) -> Result<i64, AuthorizationError> {
+async fn get_sticker_set_user_id(
+    set_name: &str,
+    client: &ClientGrammers,
+) -> Result<i64, InvocationError> {
     let set_id = match client
         .invoke(&GetSickerSetGrammers {
             stickerset: InputStickerSet::ShortName(InputStickerSetShortName {
