@@ -43,7 +43,8 @@ docker compose up --build
 ```
 *or if you want run it manually:*
 ```
-docker run \
+# --rm at your discretion
+docker run --rm \
         --log-driver local --log-opt max-size=100m \
         --mount type=bind,source=./configs,target=/app/configs \
         --name steal_stickers_bot steal_stickers_bot \

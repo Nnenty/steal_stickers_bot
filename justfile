@@ -7,9 +7,9 @@ auth: docker-build
         --name steal_stickers_bot steal_stickers_bot \
         auth
 
-# If you want test your bot manually using
+# If you want test your bot manually
 run: docker-build
-    docker run \
+    docker run --rm \
         --log-driver local --log-opt max-size=100m \
         --mount type=bind,source=./configs,target=/app/configs \
         --name steal_stickers_bot steal_stickers_bot \
