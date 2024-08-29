@@ -1,6 +1,6 @@
 use telers::utils::text::{html_code, html_text_link};
 
-pub fn send_sticker_set_message(
+pub fn sticker_set_message(
     sticker_set_title: &str,
     sticker_set_name: &str,
     sticker_set_link: &str,
@@ -21,7 +21,7 @@ pub fn send_sticker_set_message(
     )
 }
 
-pub fn send_start_message() -> String {
+pub fn start_message() -> String {
     "
     Hello! This is bot to steal stickers.\n\
     List of commands you can use:\n\

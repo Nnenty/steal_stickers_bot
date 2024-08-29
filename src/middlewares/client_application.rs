@@ -2,7 +2,7 @@ use async_trait::async_trait;
 use chrono::{NaiveTime, Utc};
 use grammers_client::Client as ClientGrammers;
 use telers::{
-    errors::EventErrorKind,
+    errors::{EventErrorKind, MiddlewareError},
     event::EventReturn,
     middlewares::{outer::MiddlewareResponse, OuterMiddleware},
     router::Request,
@@ -57,7 +57,7 @@ impl OuterMiddleware for ClientApplication {
 
             let client = client_connect(self.api_id, self.api_hash.clone())
                 .await
-                .unwrap();
+                .map_err(MiddlewareError::new)?;
 
             let mut lock = self.client.lock().await;
             *lock = client.clone();

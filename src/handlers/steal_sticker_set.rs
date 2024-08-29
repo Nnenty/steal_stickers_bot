@@ -5,14 +5,16 @@ use telers::{
     errors::session::ErrorKind,
     event::{telegram::HandlerResult, EventReturn},
     fsm::{Context, Storage},
-    methods::{AddStickerToSet, CreateNewStickerSet, GetMe, GetStickerSet, SendMessage},
+    methods::{
+        AddStickerToSet, CreateNewStickerSet, DeleteMessage, GetMe, GetStickerSet, SendMessage,
+    },
     types::{InputFile, InputSticker, Message, MessageSticker, MessageText},
     utils::text::html_bold,
     Bot,
 };
 use tracing::{debug, error};
 
-use crate::core::{generate_sticker_set_name_and_link, send_sticker_set_message, sticker_format};
+use crate::core::{generate_sticker_set_name_and_link, sticker_format, sticker_set_message};
 use crate::StealStickerSetState;
 
 pub async fn steal_sticker_set_handler<S: Storage>(
@@ -22,15 +24,15 @@ pub async fn steal_sticker_set_handler<S: Storage>(
 ) -> HandlerResult {
     fsm.finish().await.map_err(Into::into)?;
 
+    fsm.set_state(StealStickerSetState::StealStickerSetName)
+        .await
+        .map_err(Into::into)?;
+
     bot.send(SendMessage::new(
         message.chat.id(),
         "Send me a sticker and I will steal a sticker pack containing that sticker for you:",
     ))
     .await?;
-
-    fsm.set_state(StealStickerSetState::StealStickerSetName)
-        .await
-        .map_err(Into::into)?;
 
     Ok(EventReturn::Finish)
 }
@@ -45,7 +47,7 @@ pub async fn steal_sticker_set_name_handler<S: Storage>(
         None => {
             bot.send(SendMessage::new(
                 message.chat.id(),
-                "This sticker is without the sticker pack! Try to send another sticker pack:",
+                "This sticker pack is without name! Try send to another sticker pack:",
             ))
             .await?;
 
@@ -73,7 +75,7 @@ pub async fn steal_sticker_set_name_handler<S: Storage>(
 pub async fn process_wrong_type(bot: Bot, message: Message) -> HandlerResult {
     bot.send(SendMessage::new(
         message.chat().id(),
-        "Please, send me a sticker.",
+        "Please, send me a sticker:",
     ))
     .await?;
 
@@ -91,7 +93,7 @@ pub async fn create_new_sticker_set<S: Storage>(
     let set_title = if message.text.len() > 64 {
         bot.send(SendMessage::new(
             message.chat.id(),
-            "Too long name for sticker pack!\nTry enter a name up to 64 characters long.",
+            "Too long name for sticker pack!\nTry enter a name up to 64 characters long:",
         ))
         .await?;
 
@@ -99,7 +101,7 @@ pub async fn create_new_sticker_set<S: Storage>(
     } else if message.text.len() < 1 {
         bot.send(SendMessage::new(
             message.chat.id(),
-            "Too short name!\nTry enter a name between 1 and 64 characters long.",
+            "Too short name!\nTry enter a name between 1 and 64 characters long:",
         ))
         .await?;
 
@@ -138,7 +140,7 @@ pub async fn create_new_sticker_set<S: Storage>(
     // prepare name for new sticker set and link to use it in message later
     let (mut set_name, mut set_link) = generate_sticker_set_name_and_link(11, &bot_username);
 
-    bot.send(SendMessage::new(
+    let message_delete = bot.send(SendMessage::new(
         message.chat.id(),
         format!(
             "Creating sticker pack with name `{}` for you..\n(creating sticker packs \
@@ -255,7 +257,7 @@ pub async fn create_new_sticker_set<S: Storage>(
 
     let steal_sticker_set_link = format!("t.me/addstickers/{}", steal_sticker_set_name);
 
-    let send_sticker_set = send_sticker_set_message(
+    let send_sticker_set = sticker_set_message(
         &set_title,
         &set_name,
         &set_link,
@@ -265,6 +267,13 @@ pub async fn create_new_sticker_set<S: Storage>(
 
     bot.send(SendMessage::new(message.chat.id(), send_sticker_set).parse_mode(ParseMode::HTML))
         .await?;
+
+    // delete unnecessary message
+    bot.send(DeleteMessage::new(
+        message_delete.chat().id(),
+        message_delete.id(),
+    ))
+    .await?;
 
     Ok(EventReturn::Finish)
 }

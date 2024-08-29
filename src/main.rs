@@ -97,7 +97,8 @@ async fn main() {
         .with(
             EnvFilter::new("debug")
                 .add_directive("hyper=warn".parse().expect("Invalid directive"))
-                .add_directive("reqwest=warn".parse().expect("Invalid directive")),
+                .add_directive("reqwest=warn".parse().expect("Invalid directive"))
+                .add_directive("grammers=warn".parse().expect("Invalid directive")),
         )
         .init();
 

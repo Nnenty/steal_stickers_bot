@@ -11,7 +11,7 @@ use telers::{
     enums::ParseMode,
     event::{telegram::HandlerResult, EventReturn},
     fsm::{Context, Storage},
-    methods::{AddStickerToSet, GetMe, GetStickerSet, SendMessage},
+    methods::{AddStickerToSet, DeleteMessage, GetMe, GetStickerSet, SendMessage},
     types::{InputFile, InputSticker, MessageSticker, MessageText, Sticker},
     utils::text::{html_bold, html_text_link},
     Bot,
@@ -29,16 +29,16 @@ pub async fn add_stickers_handler<S: Storage>(
 ) -> HandlerResult {
     fsm.finish().await.map_err(Into::into)?;
 
-    bot.send(SendMessage::new(
-        message.chat.id(),
-        format!("Send me {your} sticker pack stolen by this bot\n\
-        (if you don't have the sticker packs stolen by this bot, first use the command /steal_pack):", your = html_bold("your")),
-    ).parse_mode(ParseMode::HTML))
-    .await?;
-
     fsm.set_state(AddStickerState::GetStolenStickerSet)
         .await
         .map_err(Into::into)?;
+
+    bot.send(SendMessage::new(
+            message.chat.id(),
+            format!("Send me {your} sticker pack stolen by this bot, in which you want to add sticker(s).\n\
+            (if you don't have the sticker packs stolen by this bot, first use the command /steal_pack):", your = html_bold("your")),
+        ).parse_mode(ParseMode::HTML))
+        .await?;
 
     Ok(EventReturn::Finish)
 }
@@ -79,7 +79,7 @@ pub async fn get_stolen_sticker_set<S: Storage>(
     {
         bot.send(SendMessage::new(
             message.chat.id(),
-            "I didnt create this sticker pack, which means i wont be able to change it according to Telegram rules!\n\
+            "This sticker pack didnt steal by this bot, which means i wont be able to change it according to Telegram rules!\n\
             Steal this sticker pack using command /steal_pack before use /add_stickers again or send me another sticker pack:",
         ))
         .await?;
@@ -91,7 +91,8 @@ pub async fn get_stolen_sticker_set<S: Storage>(
         Duration::from_secs(10),
         get_sticker_set_user_id(&sticker_set_name, &client),
     )
-    .await{
+    .await
+    {
         Ok(Ok(set_id)) => set_id,
         Ok(Err(err)) => {
             error!(%err, "Failed to get sticker set user id");
@@ -143,24 +144,24 @@ pub async fn get_stolen_sticker_set<S: Storage>(
         .stickers
         .len();
 
-    if 120 - set_length > 0 {
+    let message_delete = if 120 - set_length > 0 {
         bot.send(SendMessage::new(
-            message.chat.id(),
-            format!("Total length of this sticker pack = {}\nThis means you can add a maximum of {} stickers, \
-            otherwise you will get error because the maximum size of a sticker pack in current time = 120 stickers.",
-            set_length, 120 - set_length),
-        ))
-        .await?;
+                message.chat.id(),
+                format!("Total length of this sticker pack = {}.\nThis means you can add a maximum of {} stickers, \
+                otherwise you will get error because the maximum size of a sticker pack in current time = 120 stickers.",
+                set_length, 120 - set_length),
+            ))
+            .await?
     } else {
         bot.send(SendMessage::new(
                 message.chat.id(),
-                "Sorry, but this sticker pack contains 120 stickers\nYou cant add more stickers, because the maximum \
-                size of a sticker pack in current time = 120 stickers :(\nTry send another pack:",
+                "Sorry, but this sticker pack contains 120 stickers! :(\nYou cant add more stickers, because the maximum \
+                size of a sticker pack in current time = 120 stickers.\nTry send another pack(or delete some stickers from this sticker pack):",
             ))
             .await?;
 
         return Ok(EventReturn::Finish);
-    }
+    };
 
     fsm.set_value("get_stolen_sticker_set", sticker_set_name)
         .await
@@ -174,6 +175,14 @@ pub async fn get_stolen_sticker_set<S: Storage>(
         message.chat.id(),
         "Now send me sticker(s) you want to add in stolen sticker pack\n\
         (when you ready, send command /done or /cancel if you send wrong sticker to add):",
+    ))
+    .await?;
+
+    // delete unnecessary message after 15 sec
+    tokio::time::sleep(Duration::from_secs(15)).await;
+    bot.send(DeleteMessage::new(
+        message_delete.chat().id(),
+        message_delete.id(),
     ))
     .await?;
 
@@ -252,7 +261,7 @@ pub async fn add_stickers_to_user_owned_sticker_set<S: Storage>(
         .await
         .map_err(Into::into)?
         // only panic if i'm forget call fsm.set_value() in function get_stolen_sticker_set()
-        .expect("Sticker set name for sticker set user want steal should be set");
+        .expect("Sticker set name for sticker set should be set");
 
     let stickers_to_add_vec: Vec<Sticker> = match fsm
         .get_value("get_stickers_to_add")
@@ -276,7 +285,7 @@ pub async fn add_stickers_to_user_owned_sticker_set<S: Storage>(
     // only panic if messages uses in channels, but i'm using private filter in main function
     let user_id = message.from.expect("error while parsing user").id;
 
-    bot.send(SendMessage::new(
+    let message_delete = bot.send(SendMessage::new(
         message.chat.id(),
         "Done! Trying to add that sticker(s) to your sticker pack..\n\
         (if you have sent a lot of stickers, it may take up to a few minutes to add them)",
@@ -304,7 +313,7 @@ pub async fn add_stickers_to_user_owned_sticker_set<S: Storage>(
 
             bot.send(SendMessage::new(
                 message.chat.id(),
-                "Error occurded while adding sticker to sticker pack :( Try again.",
+                "Error occurded while adding sticker(s) to sticker pack :( Try again.",
             ))
             .await?;
 
@@ -332,6 +341,13 @@ pub async fn add_stickers_to_user_owned_sticker_set<S: Storage>(
         )
         .parse_mode(ParseMode::HTML),
     )
+    .await?;
+
+    // delete unnecessary message
+    bot.send(DeleteMessage::new(
+        message_delete.chat().id(),
+        message_delete.id(),
+    ))
     .await?;
 
     Ok(EventReturn::Finish)

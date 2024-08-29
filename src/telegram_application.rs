@@ -1,5 +1,5 @@
 use std::{io, time::Duration};
-use tracing::{debug, error};
+use tracing::error;
 
 use grammers_client::{
     client::bots::AuthorizationError, Client, Config, FixedReconnect, InitParams, SignInError,
@@ -50,7 +50,7 @@ pub async fn authorize(client: &Client, phone: &str, password: &str) -> Result<(
             Ok(_) => (),
             Err(err) => return Err(err.into()),
         };
-        debug!("signed in!");
+        println!("Signed in!");
 
         match client.session().save_to_file(SESSION_FILE) {
             Ok(_) => {}
