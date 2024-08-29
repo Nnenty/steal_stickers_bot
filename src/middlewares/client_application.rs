@@ -9,6 +9,7 @@ use telers::{
     FromContext,
 };
 use tokio::sync::Mutex;
+use tracing::debug;
 
 use crate::telegram_application::client_connect;
 
@@ -50,6 +51,8 @@ impl OuterMiddleware for ClientApplication {
         let mut lock = self.last_update_time.lock().await;
 
         if (now - *lock).num_minutes() >= 10 {
+            debug!("Update client");
+
             *lock = now;
 
             let client = client_connect(self.api_id, self.api_hash.clone())
@@ -57,7 +60,6 @@ impl OuterMiddleware for ClientApplication {
                 .unwrap();
 
             let mut lock = self.client.lock().await;
-
             *lock = client.clone();
 
             request.context.insert(self.key, Box::new(client));

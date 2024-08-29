@@ -1,19 +1,29 @@
-use std::io;
+use std::{io, time::Duration};
 use tracing::{debug, error};
 
-use grammers_client::{client::bots::AuthorizationError, Client, Config, SignInError};
+use grammers_client::{
+    client::bots::AuthorizationError, Client, Config, FixedReconnect, InitParams, SignInError,
+};
 use grammers_session::Session;
 
 mod constants;
 mod errors;
 use constants::SESSION_FILE;
 
+static RECONNECT_POLICY: FixedReconnect = FixedReconnect {
+    attempts: 3,
+    delay: Duration::from_millis(100),
+};
+
 pub async fn client_connect(api_id: i32, api_hash: String) -> Result<Client, AuthorizationError> {
     Ok(Client::connect(Config {
         session: Session::load_file_or_create(SESSION_FILE)?,
         api_id,
         api_hash,
-        params: Default::default(),
+        params: InitParams {
+            reconnection_policy: &RECONNECT_POLICY,
+            ..Default::default()
+        },
     })
     .await?)
 }
