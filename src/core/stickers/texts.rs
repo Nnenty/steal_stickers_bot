@@ -12,8 +12,8 @@ pub fn sticker_set_message(
         Now you have your own sticker pack {new_ss_url}!\n\
         You can add stickers to this pack using command /add_stickers!\n\
         Don't forget to add them for yourself!\n(original {steal_ss_url})\n\nIf you want to update your \
-        new sticker pack, use official Telegram bot @Stickers, which does an excellent job of managing sticker packs.\n\
-        (the name of your new sticker pack to handle it in @Stickers:\n{sticker_set_name})
+        new sticker pack, use official Telegram bot @Stickers, which does an excellent job of managing sticker packs. \
+        (the name of your new sticker pack to handle it in @Stickers bot: {sticker_set_name})
         ",
         new_ss_url = html_text_link(sticker_set_title, sticker_set_link),
         steal_ss_url = html_text_link(other_sticker_set_title, other_sticker_set_link,),

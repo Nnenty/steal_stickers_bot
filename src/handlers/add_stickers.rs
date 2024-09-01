@@ -35,8 +35,9 @@ pub async fn add_stickers_handler<S: Storage>(
 
     bot.send(SendMessage::new(
             message.chat.id(),
-            format!("Send me {your} sticker pack stolen by this bot, in which you want to add sticker(s).\n\
-            (if you don't have the sticker packs stolen by this bot, first use the command /steal_pack):", your = html_bold("your")),
+            format!("Send me {your} sticker pack, in which you want to add stickers \
+            (if you don't have the sticker packs stolen by this bot, first use the command /steal_pack):",
+            your = html_bold("your stolen")),
         ).parse_mode(ParseMode::HTML))
         .await?;
 
@@ -54,7 +55,7 @@ pub async fn get_stolen_sticker_set<S: Storage>(
         None => {
             bot.send(SendMessage::new(
                 message.chat.id(),
-                "This sticker pack is without name! Try send to another sticker pack:",
+                "This sticker pack is without name! Try to send another sticker pack:",
             ))
             .await?;
 
@@ -79,9 +80,12 @@ pub async fn get_stolen_sticker_set<S: Storage>(
     {
         bot.send(SendMessage::new(
             message.chat.id(),
-            "This sticker pack didnt steal by this bot, which means i wont be able to change it according to Telegram rules!\n\
-            Steal this sticker pack using command /steal_pack before use /add_stickers again or send me another sticker pack:",
-        ))
+            format!(
+            "This sticker pack wasnt stolen by this bot, which means i cant add stickers to it according to Telegram rules! \
+            Please, send {your} sticker pack or steal this sticker pack using command /steal_pack:",
+            your = html_bold("your stolen")
+            )
+        ).parse_mode(ParseMode::HTML))
         .await?;
 
         return Ok(EventReturn::Finish);
@@ -95,22 +99,22 @@ pub async fn get_stolen_sticker_set<S: Storage>(
     {
         Ok(Ok(set_id)) => set_id,
         Ok(Err(err)) => {
-            error!(%err, "Failed to get sticker set user id");
+            error!(%err, "failed to get sticker set user id:");
 
             bot.send(SendMessage::new(
                 message.chat.id(),
-                "Sorry, an error occurded! Try again:",
+                "Sorry, an error occurs :( Try send this sticker again:",
             ))
             .await?;
 
             return Ok(EventReturn::Finish);
         }
         Err(err) => {
-            error!(%err, "Too long time to get sticker set user id");
+            error!(%err, "too long time to get sticker set user id:");
 
             bot.send(SendMessage::new(
                 message.chat.id(),
-                "Sorry, an error occurded! Try again:",
+                "Sorry, an error occurs :( Try send sticker again:",
             ))
             .await?;
 
@@ -127,7 +131,7 @@ pub async fn get_stolen_sticker_set<S: Storage>(
                 message.chat.id(),
                 format!(
                     "You are not the owner of this sticker pack! Please, send {your} sticker pack \
-            (you also can steal this sticker pack using command /steal_pack):",
+            or steal this sticker pack using command /steal_pack:",
                     your = html_bold("your stolen")
                 ),
             )
@@ -173,8 +177,8 @@ pub async fn get_stolen_sticker_set<S: Storage>(
 
     bot.send(SendMessage::new(
         message.chat.id(),
-        "Now send me sticker(s) you want to add in stolen sticker pack\n\
-        (when you ready, send command /done or /cancel if you send wrong sticker to add):",
+        "Now send me stickers you want to add in stolen sticker pack. \
+        When youre ready, use /done command (or /cancel, if you want to cancel the last command):",
     ))
     .await?;
 
@@ -220,9 +224,10 @@ pub async fn get_stickers_to_add<S: Storage>(
             if set_length + sticker_vec_len >= 120 {
                 bot.send(SendMessage::new(
                     message.chat.id(),
-                    "Enough stickers! The sum of the current stickers in the sticker pack \
-                    and the stickers you want to add to it has reached 120!\nAll next stickers (if you continue sending) \
-                    will be ignored!\nPlease, use command /done to add them or /cancel if for some reason you change your mind about adding them.",
+                    "Please, use command /done to add them (or /cancel if for some reason you change your \
+                    mind about adding them), because the sum of the current stickers in the sticker pack \
+                    and the stickers you want to add to it has reached 120! All next stickers (if you continue sending) \
+                    will be ignored!",
                 )) 
                 .await?;
 
@@ -272,7 +277,7 @@ pub async fn add_stickers_to_user_owned_sticker_set<S: Storage>(
         None => {
             bot.send(SendMessage::new(
                 message.chat.id(),
-                "You haven't sent a single sticker! Send the sticker(s), and only then use the /done command:",
+                "You haven't sent a single sticker! Send the stickers, and only then use the /done command:",
             ))
             .await?;
 
@@ -305,10 +310,7 @@ pub async fn add_stickers_to_user_owned_sticker_set<S: Storage>(
             }))
             .await
         {
-            error!(
-                "error occureded while adding sticker to sticker set: {}\n",
-                err
-            );
+            error!(?err, "error occureded while adding sticker to sticker set:");
             debug!("sticker set name: {}", sticker_set_name);
 
             bot.send(SendMessage::new(
@@ -332,7 +334,7 @@ pub async fn add_stickers_to_user_owned_sticker_set<S: Storage>(
         SendMessage::new(
             message.chat.id(),
             format!(
-                "This sticker was added into {}!",
+                "This sticker(s) was added into {}!",
                 html_text_link(
                     sticker_set_title,
                     format!("t.me/addstickers/{}", sticker_set_name)

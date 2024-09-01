@@ -9,7 +9,7 @@ use telers::{
         AddStickerToSet, CreateNewStickerSet, DeleteMessage, GetMe, GetStickerSet, SendMessage,
     },
     types::{InputFile, InputSticker, Message, MessageSticker, MessageText},
-    utils::text::html_bold,
+    utils::text::{html_bold, html_code},
     Bot,
 };
 use tracing::{debug, error};
@@ -30,7 +30,7 @@ pub async fn steal_sticker_set_handler<S: Storage>(
 
     bot.send(SendMessage::new(
         message.chat.id(),
-        "Send me a sticker and I will steal a sticker pack containing that sticker for you:",
+        "Send me a sticker and i will steal this sticker pack for you:",
     ))
     .await?;
 
@@ -143,7 +143,7 @@ pub async fn create_new_sticker_set<S: Storage>(
     let message_delete = bot.send(SendMessage::new(
         message.chat.id(),
         format!(
-            "Creating sticker pack with name `{}` for you..\n(creating sticker packs \
+            "Stealing sticker pack with name `{}` for you..\n(stealing sticker packs \
             containing more than 50 stickers can take up to a several minutes due to some internal limitations)",
             set_title
         ),
@@ -169,11 +169,12 @@ pub async fn create_new_sticker_set<S: Storage>(
             steal_stickers_from_sticker_set[..sticker_set_length]
                 .into_iter()
                 .map(|sticker| {
-                    // i explicitly ask the user to send me a sticker, so that the sticker set will contain at least 1 sticker
                     let sticker_is: InputSticker = InputSticker::new(
                         InputFile::id(sticker.file_id.as_ref()),
                         &sticker_format(&steal_stickers_from_sticker_set)
-                            .expect("empty sticker set to copy"),
+                            // i explicitly ask the user to send me a sticker, so that the
+                            // sticker set will contain at least 1 sticker
+                            .expect("empty sticker set"),
                     );
 
                     sticker_is.emoji_list(sticker.clone().emoji)
@@ -219,17 +220,19 @@ pub async fn create_new_sticker_set<S: Storage>(
             }
         }
     }
+
     tokio::time::sleep(Duration::from_millis(2111)).await;
 
     if more_than_50 {
         for sticker in &steal_stickers_from_sticker_set[50..] {
             if let Err(err) = bot
                 .send(AddStickerToSet::new(user_id, &set_name, {
-                    // i explicitly ask the user to send me a sticker, so that the sticker set will contain at least 1 sticker
                     let sticker_is = InputSticker::new(
                         InputFile::id(sticker.file_id.as_ref()),
                         &sticker_format(&steal_stickers_from_sticker_set)
-                            .expect("empty sticker set to copy"),
+                            // i explicitly ask the user to send me a sticker, so that the
+                            // sticker set will contain at least 1 sticker
+                            .expect("empty sticker set"),
                     );
 
                     sticker_is.emoji_list(sticker.clone().emoji)
@@ -241,13 +244,17 @@ pub async fn create_new_sticker_set<S: Storage>(
                 bot.send(SendMessage::new(
                     message.chat.id(),
                     format!(
-                        "Error occurded while creating new sticker pack, {but_created}!\n\
-                        Due to an error, not all stickers may have been stolen, :(\nTry again.\n
-                        (preferably, remove this sticker pack by name from the message below using the official telegram bot @Stickers)",
-                        but_created = html_bold("but sticker pack was created")
+                        "Error occurded while creating new sticker pack, {but_created}! \
+                        Due to an error, not all stickers may have been stolen :(\n\
+                        (you can delete this sticker pack using the /delpack command in official Telegram bot @Stickers. \
+                        Name of this sticker pack: {set_name_code})",
+                        but_created = html_bold("but sticker pack was created"),
+                        set_name_code = html_code(&set_name)
                     ),
-                ))
+                ).parse_mode(ParseMode::HTML))
                 .await?;
+
+                return Ok(EventReturn::Finish);
             }
 
             // sleep because you can’t send telegram api requests more often than per second

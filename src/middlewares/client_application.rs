@@ -1,6 +1,5 @@
-use async_trait::async_trait;
-use chrono::{NaiveTime, Utc};
-use grammers_client::Client as ClientGrammers;
+use tokio::sync::Mutex;
+
 use telers::{
     errors::{EventErrorKind, MiddlewareError},
     event::EventReturn,
@@ -8,7 +7,11 @@ use telers::{
     router::Request,
     FromContext,
 };
-use tokio::sync::Mutex;
+
+use async_trait::async_trait;
+use chrono::{NaiveTime, Utc};
+use grammers_client::Client as ClientGrammers;
+
 use tracing::debug;
 
 use crate::telegram_application::client_connect;
