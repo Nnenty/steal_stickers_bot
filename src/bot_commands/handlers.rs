@@ -1,6 +1,7 @@
 // export modules
 pub mod add_stickers;
 pub mod cancel;
+pub mod my_stickers;
 pub mod process_non_sticker;
 pub mod source;
 pub mod start;
@@ -12,6 +13,7 @@ pub use add_stickers::{
     get_stolen_sticker_set,
 };
 pub use cancel::cancel;
+pub use my_stickers::{my_stickers, process_button};
 pub use process_non_sticker::process_non_sticker;
 pub use source::source;
 pub use start::start;

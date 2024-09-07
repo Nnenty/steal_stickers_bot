@@ -19,7 +19,7 @@ use telers::{
 
 use tracing::{debug, error};
 
-use crate::AddStickerState;
+use crate::states::AddStickerState;
 use crate::{core::sticker_format, middlewares::client_application::Client};
 
 pub async fn add_stickers<S: Storage>(

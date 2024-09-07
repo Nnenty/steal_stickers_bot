@@ -26,8 +26,10 @@ pub mod middlewares;
 pub mod states;
 mod telegram_application;
 use bot_commands::{
-    add_stickers_command, commands::cancel_command, process_non_command, process_non_sticker,
-    source_command, start_command, steal_sticker_set_command,
+    add_stickers_command,
+    commands::{cancel_command, my_stickers},
+    process_non_command, process_non_sticker, source_command, start_command,
+    steal_sticker_set_command,
 };
 use middlewares::ClientApplication;
 use states::{AddStickerState, StealStickerSetState};
@@ -42,9 +44,10 @@ async fn set_commands(bot: Bot) -> Result<(), HandlerError> {
         "add_stickers",
         "Add stickers to a sticker pack stolen by this bot",
     );
+    let my_stickers = BotCommand::new("my_stickers", "List of your stolen stickers");
     let cancel = BotCommand::new("cancel", "Cancel last command");
 
-    let private_chats = [help, source, src, steal, steal_sticker, cancel];
+    let private_chats = [help, source, src, steal, steal_sticker, cancel, my_stickers];
 
     bot.send(SetMyCommands::new(private_chats.clone()).scope(BotCommandScopeAllPrivateChats {}))
         .await?;
@@ -161,6 +164,7 @@ async fn main() {
             "add_stickers",
             "help",
             "cancel",
+            "my_stickers",
         ],
     )
     .await;
@@ -170,6 +174,7 @@ async fn main() {
     add_stickers_command(&mut router, "add_stickers", "done").await;
     steal_sticker_set_command(&mut router, "steal_pack").await;
     process_non_sticker(&mut router, ContentTypeEnum::Sticker).await;
+    my_stickers(&mut router, "my_stickers").await;
 
     // -------------------------------------------------------------------------------
 

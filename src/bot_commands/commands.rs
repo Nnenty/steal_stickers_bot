@@ -9,9 +9,9 @@ use telers::{
 
 use super::handlers::{
     add_stickers, add_stickers_to_user_owned_sticker_set, cancel, create_new_sticker_set,
-    get_stickers_to_add, get_stolen_sticker_set,
-    process_non_sticker as process_non_sticker_handler, source, start, steal_sticker_set,
-    steal_sticker_set_name,
+    get_stickers_to_add, get_stolen_sticker_set, my_stickers as my_stickers_handler,
+    process_button, process_non_sticker as process_non_sticker_handler, source, start,
+    steal_sticker_set, steal_sticker_set_name,
 };
 
 /// If the user simply writes to the bot without calling any commands, the bot will call specified function
@@ -103,6 +103,16 @@ pub async fn steal_sticker_set_command(router: &mut Router<Reqwest>, command: &'
         .register(create_new_sticker_set::<MemoryStorage>)
         .filter(ContentType::one(ContentTypeEnum::Text))
         .filter(StateFilter::one(StealStickerSetState::CreateNewStickerSet));
+}
+
+pub async fn my_stickers(router: &mut Router<Reqwest>, command: &'static str) {
+    router
+        .message
+        .register(my_stickers_handler)
+        .filter(Command::one(command))
+        .filter(ContentType::one(ContentTypeEnum::Text));
+
+    router.callback_query.register(process_button);
 }
 
 /// If user enter wrong content type, but the request type is <content_type>, this handler will process it

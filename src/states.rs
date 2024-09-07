@@ -1,5 +1,6 @@
-pub mod add_sticker_state;
-pub mod steal_sticker_set_state;
+pub mod add_stickers;
+pub mod my_stickers;
+pub mod steal_sticker_set;
 
-pub use add_sticker_state::AddStickerState;
-pub use steal_sticker_set_state::StealStickerSetState;
+pub use add_stickers::AddStickerState;
+pub use steal_sticker_set::StealStickerSetState;

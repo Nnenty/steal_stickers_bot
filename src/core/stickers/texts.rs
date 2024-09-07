@@ -23,13 +23,14 @@ pub fn sticker_set_message(
 
 pub fn start_message() -> String {
     "
-    Hello! This is bot to steal stickers.\n\
+    Hello! This is bot to steal stickers!\n\
     List of commands you can use:\n\
     /help - Show help message\n\
     /source or /src - Show source code of the bot\n\
+    /cancel - Cancel last command\n\
     /steal_pack - Steal sticker pack\n\
     /add_stickers - Add sticker to a sticker pack stolen by this bot\n\
-    /cancel - Cancel last command
+    /my_stickers - List of your stolen stickers\n\
         "
     .to_owned()
 }
