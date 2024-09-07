@@ -28,7 +28,11 @@ pub async fn client_connect(api_id: i32, api_hash: String) -> Result<Client, Aut
     .await?)
 }
 
-pub async fn authorize(client: &Client, phone: &str, password: &str) -> Result<(), errors::Error> {
+pub async fn client_authorize(
+    client: &Client,
+    phone: &str,
+    password: &str,
+) -> Result<(), errors::Error> {
     let mut sign_out = false;
 
     if !client.is_authorized().await? {

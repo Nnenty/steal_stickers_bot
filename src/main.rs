@@ -2,15 +2,15 @@ use std::process;
 
 use telers::{
     client::Reqwest,
-    enums::{ChatType as ChatTypeEnum, ContentType as ContentTypeEnum},
+    enums::ContentType as ContentTypeEnum,
     errors::HandlerError,
     event::ToServiceProvider as _,
-    filters::{ChatType, Command, ContentType, State as StateFilter},
+    filters::State as StateFilter,
     fsm::{MemoryStorage, Strategy},
     methods::SetMyCommands,
     middlewares::outer::FSMContext,
     types::{BotCommand, BotCommandScopeAllPrivateChats},
-    Bot, Dispatcher, Filter as _, Router,
+    Bot, Dispatcher, Router,
 };
 
 use tracing::{debug, error};
@@ -20,20 +20,18 @@ use clap::{Parser, Subcommand};
 use serde::Deserialize;
 use toml;
 
+pub mod bot_commands;
 pub mod core;
-mod handlers;
 pub mod middlewares;
 pub mod states;
 mod telegram_application;
-use handlers::{
-    add_stickers::get_stickers_to_add, add_stickers_handler,
-    add_stickers_to_user_owned_sticker_set, cancel_handler, create_new_sticker_set,
-    get_stolen_sticker_set, process_wrong_type as process_wrong_type_handler, source_handler,
-    start_handler, steal_sticker_set_handler, steal_sticker_set_name_handler,
+use bot_commands::{
+    add_stickers_command, commands::cancel_command, process_non_command, process_non_sticker,
+    source_command, start_command, steal_sticker_set_command,
 };
 use middlewares::ClientApplication;
-pub use states::{AddStickerState, StealStickerSetState};
-use telegram_application::{authorize, client_connect};
+use states::{AddStickerState, StealStickerSetState};
+use telegram_application::{client_authorize, client_connect};
 
 async fn set_commands(bot: Bot) -> Result<(), HandlerError> {
     let help = BotCommand::new("help", "Show help message");
@@ -119,7 +117,7 @@ async fn main() {
         .expect("error connect to Telegram");
 
     if Commands::Auth == cli.command {
-        authorize(&client, phone_number.as_str(), password.as_str())
+        client_authorize(&client, phone_number.as_str(), password.as_str())
             .await
             .expect("error to authorize");
 
@@ -145,13 +143,16 @@ async fn main() {
         .update
         .outer_middlewares
         .register(FSMContext::new(storage).strategy(Strategy::UserInChat));
+
     router
         .message
         .outer_middlewares
         .register(ClientApplication::new(client, api_id, api_hash));
 
-    // if user dont specify one of thats commands, send him help message
-    void_command(
+    // all bot commands
+    // -------------------------------------------------------------------------------
+
+    process_non_command(
         &mut router,
         &[
             "source",
@@ -163,21 +164,16 @@ async fn main() {
         ],
     )
     .await;
-
     start_command(&mut router, &["start", "help"]).await;
-
     source_command(&mut router, &["src", "source"]).await;
-
     cancel_command(&mut router, &["cancel"]).await;
-
     add_stickers_command(&mut router, "add_stickers", "done").await;
-
     steal_sticker_set_command(&mut router, "steal_pack").await;
+    process_non_sticker(&mut router, ContentTypeEnum::Sticker).await;
 
-    process_wrong_type(&mut router, ContentTypeEnum::Sticker).await;
+    // -------------------------------------------------------------------------------
 
     main_router.include(router);
-
     main_router.startup.register(set_commands, (bot.clone(),));
 
     let dispatcher = Dispatcher::builder()
@@ -195,109 +191,4 @@ async fn main() {
         Ok(()) => debug!("Bot stopped"),
         Err(err) => debug!("Bot stopped with error: {err}"),
     }
-}
-
-/// If the user simply writes to the bot without calling any commands, the bot will send a /help message
-async fn void_command(router: &mut Router<Reqwest>, not_void_commands: &'static [&str]) {
-    router
-        .message
-        .register(start_handler::<MemoryStorage>)
-        .filter(StateFilter::none())
-        .filter(Command::many(not_void_commands.iter().map(ToOwned::to_owned)).invert());
-}
-
-/// Executes Telegram commands `/start` and `/help`
-async fn start_command(router: &mut Router<Reqwest>, commands: &'static [&str]) {
-    router
-        .message
-        .register(start_handler::<MemoryStorage>)
-        .filter(ChatType::one(ChatTypeEnum::Private))
-        .filter(Command::many(commands.iter().map(ToOwned::to_owned)));
-}
-
-/// Executes Telegram commands `/src` and `/source`
-async fn source_command(router: &mut Router<Reqwest>, commands: &'static [&str]) {
-    router
-        .message
-        .register(source_handler::<MemoryStorage>)
-        .filter(ChatType::one(ChatTypeEnum::Private))
-        .filter(Command::many(commands.iter().map(ToOwned::to_owned)));
-}
-
-/// Executes Telegram command `/cancel`
-async fn cancel_command(router: &mut Router<Reqwest>, commands: &'static [&str]) {
-    router
-        .message
-        .register(cancel_handler::<MemoryStorage>)
-        .filter(ChatType::one(ChatTypeEnum::Private))
-        .filter(Command::many(commands.iter().map(ToOwned::to_owned)));
-}
-
-/// Executes Telegram command `/add_stickers`
-async fn add_stickers_command(
-    router: &mut Router<Reqwest>,
-    command: &'static str,
-    done_command: &'static str,
-) {
-    router
-        .message
-        .register(add_stickers_handler::<MemoryStorage>)
-        .filter(ChatType::one(ChatTypeEnum::Private))
-        .filter(Command::one(command))
-        .filter(ContentType::one(ContentTypeEnum::Text));
-
-    router
-        .message
-        .register(get_stolen_sticker_set::<MemoryStorage>)
-        .filter(ContentType::one(ContentTypeEnum::Sticker))
-        .filter(StateFilter::one(AddStickerState::GetStolenStickerSet));
-
-    router
-        .message
-        .register(get_stickers_to_add::<MemoryStorage>)
-        .filter(ContentType::one(ContentTypeEnum::Sticker))
-        .filter(StateFilter::one(AddStickerState::GetStickersToAdd));
-
-    router
-        .message
-        .register(add_stickers_to_user_owned_sticker_set::<MemoryStorage>)
-        .filter(Command::one(done_command))
-        .filter(ContentType::one(ContentTypeEnum::Text))
-        .filter(StateFilter::one(AddStickerState::GetStickersToAdd));
-}
-
-/// Executes Telegram command `/steal_pack`
-async fn steal_sticker_set_command(router: &mut Router<Reqwest>, command: &'static str) {
-    router
-        .message
-        .register(steal_sticker_set_handler::<MemoryStorage>)
-        .filter(ChatType::one(ChatTypeEnum::Private))
-        .filter(Command::one(command))
-        .filter(ContentType::one(ContentTypeEnum::Text));
-
-    router
-        .message
-        .register(steal_sticker_set_name_handler::<MemoryStorage>)
-        .filter(ContentType::one(ContentTypeEnum::Sticker))
-        .filter(StateFilter::one(StealStickerSetState::StealStickerSetName));
-
-    router
-        .message
-        .register(create_new_sticker_set::<MemoryStorage>)
-        .filter(ContentType::one(ContentTypeEnum::Text))
-        .filter(StateFilter::one(StealStickerSetState::CreateNewStickerSet));
-}
-
-/// If user enter wrong content type, but the request type is <content_type>, this handler will process it
-async fn process_wrong_type(router: &mut Router<Reqwest>, content_type: ContentTypeEnum) {
-    router
-        .message
-        .register(process_wrong_type_handler)
-        .filter(ContentType::one(content_type).invert())
-        .filter(
-            StateFilter::one(StealStickerSetState::StealStickerSetName).or(StateFilter::many([
-                AddStickerState::GetStolenStickerSet,
-                AddStickerState::GetStickersToAdd,
-            ])),
-        );
 }

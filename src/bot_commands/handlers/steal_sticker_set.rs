@@ -8,7 +8,7 @@ use telers::{
     methods::{
         AddStickerToSet, CreateNewStickerSet, DeleteMessage, GetMe, GetStickerSet, SendMessage,
     },
-    types::{InputFile, InputSticker, Message, MessageSticker, MessageText},
+    types::{InputFile, InputSticker, MessageSticker, MessageText},
     utils::text::{html_bold, html_code},
     Bot,
 };
@@ -17,7 +17,7 @@ use tracing::{debug, error};
 use crate::core::{generate_sticker_set_name_and_link, sticker_format, sticker_set_message};
 use crate::StealStickerSetState;
 
-pub async fn steal_sticker_set_handler<S: Storage>(
+pub async fn steal_sticker_set<S: Storage>(
     bot: Bot,
     message: MessageText,
     fsm: Context<S>,
@@ -37,7 +37,7 @@ pub async fn steal_sticker_set_handler<S: Storage>(
     Ok(EventReturn::Finish)
 }
 
-pub async fn steal_sticker_set_name_handler<S: Storage>(
+pub async fn steal_sticker_set_name<S: Storage>(
     bot: Bot,
     message: MessageSticker,
     fsm: Context<S>,
@@ -72,16 +72,6 @@ pub async fn steal_sticker_set_name_handler<S: Storage>(
     Ok(EventReturn::Finish)
 }
 
-pub async fn process_wrong_type(bot: Bot, message: Message) -> HandlerResult {
-    bot.send(SendMessage::new(
-        message.chat().id(),
-        "Please, send me a sticker:",
-    ))
-    .await?;
-
-    Ok(EventReturn::Finish)
-}
-
 /// ### Panics
 /// - Panics if user is unknown (only if message sent in channel)
 pub async fn create_new_sticker_set<S: Storage>(
@@ -110,7 +100,7 @@ pub async fn create_new_sticker_set<S: Storage>(
         message.text
     };
 
-    // only panic if i'm forget call fsm.set_value() in function steal_sticker_set_name_handler()
+    // only panic if i'm forget call fsm.set_value() in function steal_sticker_set_name()
     let steal_sticker_set_name: Box<str> = fsm
         .get_value("steal_sticker_set_name")
         .await

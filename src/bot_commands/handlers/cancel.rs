@@ -6,11 +6,7 @@ use telers::{
     Bot,
 };
 
-pub async fn cancel_handler<S: Storage>(
-    bot: Bot,
-    message: MessageText,
-    fsm: Context<S>,
-) -> HandlerResult {
+pub async fn cancel<S: Storage>(bot: Bot, message: MessageText, fsm: Context<S>) -> HandlerResult {
     fsm.finish().await.map_err(Into::into)?;
 
     bot.send(SendMessage::new(

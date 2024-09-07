@@ -22,7 +22,7 @@ use tracing::{debug, error};
 use crate::AddStickerState;
 use crate::{core::sticker_format, middlewares::client_application::Client};
 
-pub async fn add_stickers_handler<S: Storage>(
+pub async fn add_stickers<S: Storage>(
     bot: Bot,
     message: MessageText,
     fsm: Context<S>,
@@ -91,8 +91,9 @@ pub async fn get_stolen_sticker_set<S: Storage>(
         return Ok(EventReturn::Finish);
     }
 
+    // if function doesnt execute in 3 second, send error message
     let sticker_set_user_id = match tokio::time::timeout(
-        Duration::from_secs(10),
+        Duration::from_secs(3),
         get_sticker_set_user_id(&sticker_set_name, &client),
     )
     .await

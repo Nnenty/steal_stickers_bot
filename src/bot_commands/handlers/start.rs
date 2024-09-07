@@ -8,11 +8,7 @@ use telers::{
 
 use crate::core::start_message;
 
-pub async fn start_handler<S: Storage>(
-    bot: Bot,
-    message: Message,
-    fsm: Context<S>,
-) -> HandlerResult {
+pub async fn start<S: Storage>(bot: Bot, message: Message, fsm: Context<S>) -> HandlerResult {
     fsm.finish().await.map_err(Into::into)?;
 
     bot.send(SendMessage::new(message.chat().id(), start_message()))
