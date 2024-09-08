@@ -6,29 +6,48 @@ use telers::{
 };
 use tracing::debug;
 
-const STICKERS_NUMBER_PER_PAGE: usize = 10;
+const STICKER_SETS_NUMBER_PER_PAGE: usize = 10;
 
 pub async fn my_stickers(bot: Bot, message: MessageText) -> HandlerResult {
     // In the future, a database will be added, and the real response from the database will be used instead of this
     // variable. So far, during the development of the algorithm itself, I use a stub
     let mut database_result = Vec::new();
-    for i in 0..38 {
+    for i in 0..500 {
         database_result.push(format!("set{i}"));
     }
 
     let mut buttons = Vec::new();
 
-    if database_result.len() > STICKERS_NUMBER_PER_PAGE {
+    let mut page_count = 0;
+    let mut current_row_index = 0;
+
+    if database_result.len() > STICKER_SETS_NUMBER_PER_PAGE {
         database_result.iter().enumerate().for_each(|(i, _)| {
-            if i % STICKERS_NUMBER_PER_PAGE == 0 {
-                buttons.push(
-                    InlineKeyboardButton::new(format!("page {i}"))
-                        .callback_data(format!("page_{i}")),
-                )
+            if i % STICKER_SETS_NUMBER_PER_PAGE == 0 {
+                // create a new row every 5 buttons
+                if page_count % 5 == 0 {
+                    page_count += 1;
+                    current_row_index += 1;
+
+                    buttons.push(vec![InlineKeyboardButton::new(format!(
+                        "page {page_count}",
+                    ))
+                    .callback_data(format!("page_{page_count}",))])
+                // else push button into current row
+                } else {
+                    page_count += 1;
+
+                    buttons[current_row_index - 1].push(
+                        InlineKeyboardButton::new(format!("page {page_count}",))
+                            .callback_data(format!("page_{page_count}",)),
+                    );
+                }
             }
         })
     } else if database_result.len() > 0 {
-        buttons.push(InlineKeyboardButton::new("page 1").callback_data("page_1"));
+        buttons.push(vec![
+            InlineKeyboardButton::new("page 1").callback_data("page_1")
+        ]);
     } else {
         bot.send(SendMessage::new(
             message.chat.id(),
@@ -40,7 +59,7 @@ pub async fn my_stickers(bot: Bot, message: MessageText) -> HandlerResult {
         return Ok(EventReturn::Finish);
     };
 
-    let inline_keyboard = ReplyMarkup::InlineKeyboard(InlineKeyboardMarkup::new([buttons]));
+    let inline_keyboard = ReplyMarkup::InlineKeyboard(InlineKeyboardMarkup::new(buttons));
 
     bot.send(
         SendMessage::new(message.chat.id(), "List of your stolen stickers:")
