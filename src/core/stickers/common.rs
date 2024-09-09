@@ -40,10 +40,38 @@ pub fn get_page_begin_and_end(
     let begin_page_index = sticker_sets_number_per_page * (current_page - 1);
 
     let end_page_index = if current_page == pages_number as usize {
-        list_len - 1
+        list_len
     } else {
-        begin_page_index + sticker_sets_number_per_page - 1
+        begin_page_index + sticker_sets_number_per_page
     };
 
     (begin_page_index, end_page_index)
+}
+
+#[test]
+fn sticker_format_test() {
+    let (generated_name, generated_link) = generate_sticker_set_name_and_link(15, "your_bot");
+
+    assert!(!generated_name.contains("t.me/addstickers/"));
+    assert!(
+        generated_link.contains("t.me/addstickers/") && generated_link.contains(&generated_name)
+    );
+
+    assert_eq!(
+        generated_link.len(),
+        generated_name.len() + "t.me/addstickers/".len()
+    )
+}
+
+#[test]
+fn get_page_begin_and_end_test() {
+    let (begin_index, end_index) = get_page_begin_and_end(1, 2, 97, 50);
+
+    assert_eq!(begin_index, 0);
+    assert_eq!(end_index, 50);
+
+    let (begin_index, end_index) = get_page_begin_and_end(4, 4, 176, 50);
+
+    assert_eq!(begin_index, 150);
+    assert_eq!(end_index, 176);
 }

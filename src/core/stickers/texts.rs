@@ -56,3 +56,21 @@ pub fn current_page_message(current_page: usize, pages_number: u32, list: &Vec<S
 
     sticker_sets_page
 }
+
+#[test]
+fn current_page_message_test() {
+    let mut list = Vec::new();
+    for i in 0..78 {
+        list.push(format!("set{i}"));
+    }
+
+    let message = current_page_message(2, 2, &list);
+
+    assert_eq!(
+        message.as_str(),
+        "List of your stickers (2 page):\n\
+    set50 set51 set52 set53 set54 set55 set56 set57 set58 set59 set60 set61 set62 set63 set64 \
+    set65 set66 set67 set68 set69 set70 set71 set72 set73 set74 set75 set76 set77 \
+    "
+    );
+}
