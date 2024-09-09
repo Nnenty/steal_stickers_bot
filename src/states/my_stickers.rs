@@ -5,6 +5,7 @@ pub enum MyStickersState {
     EditStickerSetsListMessage,
     StickerSetsListInlineKeyboardMarkup,
     PreviousCallbackQuery,
+    PagesNumber,
 }
 
 impl MyStickersState {
@@ -15,6 +16,7 @@ impl MyStickersState {
                 "sticker_sets_list_inline_keyboard_markup"
             }
             MyStickersState::PreviousCallbackQuery => "previous_callback_query",
+            MyStickersState::PagesNumber => "pages_number",
         }
     }
 }

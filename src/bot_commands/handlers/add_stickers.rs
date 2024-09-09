@@ -20,7 +20,7 @@ use telers::{
 use tracing::{debug, error};
 
 use crate::states::AddStickerState;
-use crate::{core::sticker_format, middlewares::client_application::Client};
+use crate::{common::sticker_format, middlewares::client_application::Client};
 
 pub async fn add_stickers<S: Storage>(
     bot: Bot,
@@ -307,7 +307,7 @@ pub async fn add_stickers_to_user_owned_sticker_set<S: Storage>(
                     sticker_format(&[sticker_to_add.clone()]).expect("stickers not specifed"),
                 );
 
-                sticker_is.emoji_list(sticker_to_add.emoji.clone())
+                sticker_is.emoji_list(sticker_to_add.emoji)
             }))
             .await
         {

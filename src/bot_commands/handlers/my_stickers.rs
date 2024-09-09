@@ -10,9 +10,9 @@ use telers::{
 };
 use tracing::error;
 
-use crate::states::MyStickersState;
+use crate::{states::MyStickersState, texts::current_page_message};
 
-const STICKER_SETS_NUMBER_PER_PAGE: usize = 10;
+pub const STICKER_SETS_NUMBER_PER_PAGE: usize = 50;
 
 pub async fn my_stickers<S: Storage>(
     bot: Bot,
@@ -24,13 +24,13 @@ pub async fn my_stickers<S: Storage>(
     // In the future, a database will be added, and the real response from the database will be used instead of this
     // variable. So far, during the development of the algorithm itself, I use a stub
     let mut database_result = Vec::new();
-    for i in 0..501 {
-        database_result.push(format!("set{i}"));
+    for i in 0..515 {
+        database_result.push(format!("set{}", i + 1));
     }
 
     let mut buttons = Vec::new();
 
-    let mut page_count = 0;
+    let mut page_count: u32 = 0;
     let mut current_row_index = 0;
 
     if database_result.len() > STICKER_SETS_NUMBER_PER_PAGE || database_result.len() > 0 {
@@ -47,14 +47,14 @@ pub async fn my_stickers<S: Storage>(
                     buttons.push(vec![InlineKeyboardButton::new(format!(
                         "page {page_count}",
                     ))
-                    .callback_data(format!("page_{page_count}",))])
+                    .callback_data(format!("{page_count}",))])
                 // else push button into current row
                 } else {
                     page_count += 1;
 
                     buttons[current_row_index - 1].push(
-                        InlineKeyboardButton::new(format!("page {page_count}",))
-                            .callback_data(format!("page_{page_count}",)),
+                        InlineKeyboardButton::new(format!("Page {page_count}",))
+                            .callback_data(format!("{page_count}",)),
                     );
                 }
             })
@@ -75,20 +75,28 @@ pub async fn my_stickers<S: Storage>(
 
     let sticker_sets_list_message = bot
         .send(
-            SendMessage::new(message.chat.id(), "List of your stolen stickers:")
-                .reply_markup(inline_keyboard.clone()),
+            SendMessage::new(
+                message.chat.id(),
+                current_page_message(1, page_count, &database_result),
+            )
+            .reply_markup(inline_keyboard),
         )
         .await?;
 
     fsm.set_value("edit_sticker_sets_list_message", sticker_sets_list_message)
         .await
         .map_err(Into::into)?;
+
     fsm.set_value(
         "sticker_sets_list_inline_keyboard_markup",
         inline_keyboard_markup,
     )
     .await
     .map_err(Into::into)?;
+
+    fsm.set_value("pages_number", page_count)
+        .await
+        .map_err(Into::into)?;
 
     fsm.set_state(MyStickersState::EditStickerSetsListMessage)
         .await
@@ -102,7 +110,7 @@ pub async fn process_button<S: Storage>(
     message: CallbackQuery,
     fsm: Context<S>,
 ) -> HandlerResult {
-    let message_data = match message.data.clone() {
+    let message_data = match message.data {
         Some(message_data) => message_data,
         None => {
             error!(
@@ -127,6 +135,7 @@ pub async fn process_button<S: Storage>(
     {
         Some(msg_data) => {
             if msg_data == message_data {
+                // do nothing
                 return Ok(EventReturn::Finish);
             } else {
                 fsm.set_value("previous_callback_query", Some(message_data.as_ref()))
@@ -140,6 +149,25 @@ pub async fn process_button<S: Storage>(
                 .map_err(Into::into)?;
         }
     };
+
+    // In the future, a database will be added, and the real response from the database will be used instead of this
+    // variable. So far, during the development of the algorithm itself, I use a stub
+    let mut database_result = Vec::new();
+    for i in 0..515 {
+        database_result.push(format!("set{}", i + 1));
+    }
+
+    let pages_number: u32 = fsm
+        .get_value("pages_number")
+        .await
+        .map_err(Into::into)?
+        .expect("Number of pages should be set");
+
+    let current_page = message_data
+        .parse::<usize>()
+        .expect("fail to convert `message_data` string into usize");
+
+    let sticker_sets_page = current_page_message(current_page, pages_number, &database_result);
 
     let message_to_edit: Message = fsm
         .get_value("edit_sticker_sets_list_message")
@@ -156,7 +184,7 @@ pub async fn process_button<S: Storage>(
     let message_to_edit_chat_id = ChatIdKind::id(message_to_edit.chat().id());
     let message_to_edit_id = message_to_edit.id();
 
-    let edit_message = EditMessageText::new(format!("Message was changed! {message_data}"))
+    let edit_message = EditMessageText::new(sticker_sets_page)
         .chat_id(message_to_edit_chat_id)
         .message_id(message_to_edit_id)
         .reply_markup(message_to_edit_reply_markup);

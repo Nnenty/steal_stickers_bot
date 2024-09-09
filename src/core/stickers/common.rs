@@ -28,3 +28,22 @@ pub fn generate_sticker_set_name_and_link(length: usize, bot_username: &str) -> 
 
     (set_name, set_link)
 }
+
+/// Return begin and end of specify page, using the necessary information
+/// (more about the pages, etc. [here](../../bot_commands/handlers/my_stickers.rs)).
+pub fn get_page_begin_and_end(
+    current_page: usize,
+    pages_number: u32,
+    list_len: usize,
+    sticker_sets_number_per_page: usize,
+) -> (usize, usize) {
+    let begin_page_index = sticker_sets_number_per_page * (current_page - 1);
+
+    let end_page_index = if current_page == pages_number as usize {
+        list_len - 1
+    } else {
+        begin_page_index + sticker_sets_number_per_page - 1
+    };
+
+    (begin_page_index, end_page_index)
+}

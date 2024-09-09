@@ -1,5 +1,9 @@
 use telers::utils::text::{html_code, html_text_link};
 
+use crate::bot_commands::handlers::my_stickers::STICKER_SETS_NUMBER_PER_PAGE;
+
+use super::common::get_page_begin_and_end;
+
 pub fn sticker_set_message(
     sticker_set_title: &str,
     sticker_set_name: &str,
@@ -33,4 +37,22 @@ pub fn start_message() -> String {
     /my_stickers - List of your stolen stickers\n\
         "
     .to_owned()
+}
+
+pub fn current_page_message(current_page: usize, pages_number: u32, list: &Vec<String>) -> String {
+    let (begin_page_index, end_page_index) = get_page_begin_and_end(
+        current_page,
+        pages_number,
+        list.len(),
+        STICKER_SETS_NUMBER_PER_PAGE,
+    );
+
+    let mut sticker_sets_page =
+        String::from(format!("List of your stickers ({current_page} page):\n"));
+    for i in begin_page_index..end_page_index {
+        sticker_sets_page += list[i].as_str();
+        sticker_sets_page.push(' ');
+    }
+
+    sticker_sets_page
 }

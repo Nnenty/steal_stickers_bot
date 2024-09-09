@@ -14,8 +14,11 @@ use telers::{
 };
 use tracing::{debug, error};
 
-use crate::core::{generate_sticker_set_name_and_link, sticker_format, sticker_set_message};
 use crate::states::StealStickerSetState;
+use crate::{
+    common::{generate_sticker_set_name_and_link, sticker_format},
+    texts::sticker_set_message,
+};
 
 pub async fn steal_sticker_set<S: Storage>(
     bot: Bot,
@@ -55,7 +58,7 @@ pub async fn steal_sticker_set_name<S: Storage>(
         }
     };
 
-    fsm.set_value("steal_sticker_set_name", set_name.clone())
+    fsm.set_value("steal_sticker_set_name", set_name.as_ref())
         .await
         .map_err(Into::into)?;
 
@@ -167,7 +170,7 @@ pub async fn create_new_sticker_set<S: Storage>(
                             .expect("empty sticker set"),
                     );
 
-                    sticker_is.emoji_list(sticker.clone().emoji)
+                    sticker_is.emoji_list(sticker.emoji.clone())
                 }),
         ))
         .await

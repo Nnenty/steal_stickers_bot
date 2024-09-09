@@ -6,7 +6,7 @@ use telers::{
     Bot,
 };
 
-use crate::core::start_message;
+use crate::texts::start_message;
 
 pub async fn start<S: Storage>(bot: Bot, message: Message, fsm: Context<S>) -> HandlerResult {
     fsm.finish().await.map_err(Into::into)?;

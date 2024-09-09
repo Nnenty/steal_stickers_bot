@@ -25,11 +25,10 @@ pub mod middlewares;
 pub mod states;
 mod telegram_application;
 use bot_commands::{
-    add_stickers_command,
-    commands::{cancel_command, my_stickers},
-    process_non_command, process_non_sticker, source_command, start_command,
-    steal_sticker_set_command,
+    add_stickers_command, cancel_command, my_stickers, process_non_command, process_non_sticker,
+    source_command, start_command, steal_sticker_set_command,
 };
+pub use core::{common, texts};
 use middlewares::ClientApplication;
 use telegram_application::{client_authorize, client_connect};
 
@@ -47,7 +46,7 @@ async fn set_commands(bot: Bot) -> Result<(), HandlerError> {
 
     let private_chats = [help, source, src, steal, steal_sticker, cancel, my_stickers];
 
-    bot.send(SetMyCommands::new(private_chats.clone()).scope(BotCommandScopeAllPrivateChats {}))
+    bot.send(SetMyCommands::new(private_chats).scope(BotCommandScopeAllPrivateChats {}))
         .await?;
 
     Ok(())
