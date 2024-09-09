@@ -2,15 +2,19 @@ use std::borrow::Cow;
 
 #[derive(Clone)]
 pub enum MyStickersState {
-    GetStolenStickerSet,
-    GetStickersToAdd,
+    EditStickerSetsListMessage,
+    StickerSetsListInlineKeyboardMarkup,
+    PreviousCallbackQuery,
 }
 
 impl MyStickersState {
     const fn as_str(&self) -> &'static str {
         match self {
-            MyStickersState::GetStolenStickerSet => "get_stolen_sticker_set",
-            MyStickersState::GetStickersToAdd => "get_stickers_to_add",
+            MyStickersState::EditStickerSetsListMessage => "edit_sticker_sets_list_message",
+            MyStickersState::StickerSetsListInlineKeyboardMarkup => {
+                "sticker_sets_list_inline_keyboard_markup"
+            }
+            MyStickersState::PreviousCallbackQuery => "previous_callback_query",
         }
     }
 }

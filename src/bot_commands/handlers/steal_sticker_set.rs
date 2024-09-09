@@ -15,7 +15,7 @@ use telers::{
 use tracing::{debug, error};
 
 use crate::core::{generate_sticker_set_name_and_link, sticker_format, sticker_set_message};
-use crate::StealStickerSetState;
+use crate::states::StealStickerSetState;
 
 pub async fn steal_sticker_set<S: Storage>(
     bot: Bot,

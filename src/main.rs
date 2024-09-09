@@ -5,7 +5,6 @@ use telers::{
     enums::ContentType as ContentTypeEnum,
     errors::HandlerError,
     event::ToServiceProvider as _,
-    filters::State as StateFilter,
     fsm::{MemoryStorage, Strategy},
     methods::SetMyCommands,
     middlewares::outer::FSMContext,
@@ -32,7 +31,6 @@ use bot_commands::{
     steal_sticker_set_command,
 };
 use middlewares::ClientApplication;
-use states::{AddStickerState, StealStickerSetState};
 use telegram_application::{client_authorize, client_connect};
 
 async fn set_commands(bot: Bot) -> Result<(), HandlerError> {

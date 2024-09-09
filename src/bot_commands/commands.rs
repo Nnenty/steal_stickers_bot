@@ -1,8 +1,8 @@
-use crate::{AddStickerState, StateFilter, StealStickerSetState};
+use crate::states::{AddStickerState, MyStickersState, StealStickerSetState};
 use telers::{
     client::Reqwest,
     enums::{ChatType as ChatTypeEnum, ContentType as ContentTypeEnum},
-    filters::{ChatType, Command, ContentType},
+    filters::{ChatType, Command, ContentType, State as StateFilter},
     fsm::MemoryStorage,
     Filter as _, Router,
 };
@@ -108,11 +108,16 @@ pub async fn steal_sticker_set_command(router: &mut Router<Reqwest>, command: &'
 pub async fn my_stickers(router: &mut Router<Reqwest>, command: &'static str) {
     router
         .message
-        .register(my_stickers_handler)
+        .register(my_stickers_handler::<MemoryStorage>)
         .filter(Command::one(command))
         .filter(ContentType::one(ContentTypeEnum::Text));
 
-    router.callback_query.register(process_button);
+    router
+        .callback_query
+        .register(process_button::<MemoryStorage>)
+        .filter(StateFilter::one(
+            MyStickersState::EditStickerSetsListMessage,
+        ));
 }
 
 /// If user enter wrong content type, but the request type is <content_type>, this handler will process it
