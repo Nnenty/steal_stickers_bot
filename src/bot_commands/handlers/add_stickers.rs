@@ -229,7 +229,7 @@ pub async fn get_stickers_to_add<S: Storage>(
                     mind about adding them), because the sum of the current stickers in the sticker pack \
                     and the stickers you want to add to it has reached 120! All next stickers (if you continue sending) \
                     will be ignored!",
-                )) 
+                ))
                 .await?;
 
                 return Ok(EventReturn::Finish);
@@ -291,12 +291,13 @@ pub async fn add_stickers_to_user_owned_sticker_set<S: Storage>(
     // only panic if messages uses in channels, but i'm using private filter in main function
     let user_id = message.from.expect("error while parsing user").id;
 
-    let message_delete = bot.send(SendMessage::new(
-        message.chat.id(),
-        "Done! Trying to add that sticker(s) to your sticker pack..\n\
+    let message_delete = bot
+        .send(SendMessage::new(
+            message.chat.id(),
+            "Done! Trying to add that sticker(s) to your sticker pack..\n\
         (if you have sent a lot of stickers, it may take up to a few minutes to add them)",
-    ))
-    .await?;
+        ))
+        .await?;
 
     for sticker_to_add in stickers_to_add_vec {
         if let Err(err) = bot

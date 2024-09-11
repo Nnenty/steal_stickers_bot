@@ -1,3 +1,5 @@
+use std::fmt;
+
 use telers::{
     event::{telegram::HandlerResult, EventReturn},
     fsm::{Context, Storage},
@@ -14,6 +16,15 @@ use crate::{states::MyStickersState, texts::current_page_message};
 
 pub const STICKER_SETS_NUMBER_PER_PAGE: usize = 50;
 
+#[derive(Debug, Clone)]
+struct DoesntHaveStolenStickers;
+
+impl fmt::Display for DoesntHaveStolenStickers {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "user does not have any stolen stickers by this bot")
+    }
+}
+
 pub async fn my_stickers<S: Storage>(
     bot: Bot,
     message: MessageText,
@@ -28,47 +39,22 @@ pub async fn my_stickers<S: Storage>(
         database_result.push(format!("set{}", i + 1));
     }
 
-    let mut buttons = Vec::new();
+    let mut buttons: Vec<Vec<InlineKeyboardButton>> = Vec::new();
 
-    let mut page_count: u32 = 0;
-    let mut current_row_index = 0;
+    let page_count =
+        match get_page_buttons(&database_result, STICKER_SETS_NUMBER_PER_PAGE, &mut buttons) {
+            Ok(pages) => pages,
+            Err(_) => {
+                bot.send(SendMessage::new(
+                    message.chat.id(),
+                    "You don't have a single stolen sticker pack! \
+            Steal any sticker pack using the /steal_pack command and it will appear in this list!",
+                ))
+                .await?;
 
-    if database_result.len() > STICKER_SETS_NUMBER_PER_PAGE || database_result.len() > 0 {
-        database_result
-            .iter()
-            .enumerate()
-            .filter(|(index, _)| index % STICKER_SETS_NUMBER_PER_PAGE == 0)
-            .for_each(|_| {
-                // create a new row every 5 buttons
-                if page_count % 5 == 0 {
-                    page_count += 1;
-                    current_row_index += 1;
-
-                    buttons.push(vec![InlineKeyboardButton::new(format!(
-                        "page {page_count}",
-                    ))
-                    .callback_data(format!("{page_count}",))])
-                // else push button into current row
-                } else {
-                    page_count += 1;
-
-                    buttons[current_row_index - 1].push(
-                        InlineKeyboardButton::new(format!("Page {page_count}",))
-                            .callback_data(format!("{page_count}",)),
-                    );
-                }
-            })
-    // otherwise user does not have sticker sets stolen by this bot
-    } else {
-        bot.send(SendMessage::new(
-            message.chat.id(),
-            "You don't have a single stolen sticker pack! \
-        Steal any sticker pack using the /steal_pack command and it will appear in this list!",
-        ))
-        .await?;
-
-        return Ok(EventReturn::Finish);
-    };
+                return Ok(EventReturn::Finish);
+            }
+        };
 
     let inline_keyboard_markup = InlineKeyboardMarkup::new(buttons);
     let inline_keyboard = ReplyMarkup::InlineKeyboard(inline_keyboard_markup.clone());
@@ -103,6 +89,46 @@ pub async fn my_stickers<S: Storage>(
         .map_err(Into::into)?;
 
     Ok(EventReturn::Finish)
+}
+
+fn get_page_buttons(
+    list: &[String],
+    sticker_sets_number_per_page: usize,
+    buttons: &mut Vec<Vec<InlineKeyboardButton>>,
+) -> Result<u32, DoesntHaveStolenStickers> {
+    let mut page_count: u32 = 0;
+    let mut current_row_index = 0;
+
+    if list.len() > sticker_sets_number_per_page || list.len() > 0 {
+        list.iter()
+            .enumerate()
+            .filter(|(index, _)| index % sticker_sets_number_per_page == 0)
+            .for_each(|_| {
+                // create a new row every 5 buttons
+                if page_count % 5 == 0 {
+                    page_count += 1;
+                    current_row_index += 1;
+
+                    buttons.push(vec![InlineKeyboardButton::new(format!(
+                        "page {page_count}",
+                    ))
+                    .callback_data(format!("{page_count}",))])
+                // else push button into current row
+                } else {
+                    page_count += 1;
+
+                    buttons[current_row_index - 1].push(
+                        InlineKeyboardButton::new(format!("Page {page_count}",))
+                            .callback_data(format!("{page_count}",)),
+                    );
+                }
+            })
+    // otherwise user does not have sticker sets stolen by this bot
+    } else {
+        return Err(DoesntHaveStolenStickers);
+    };
+
+    Ok(page_count)
 }
 
 pub async fn process_button<S: Storage>(
