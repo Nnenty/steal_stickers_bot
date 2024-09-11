@@ -21,6 +21,7 @@ use toml;
 
 pub mod bot_commands;
 pub mod core;
+pub mod database;
 pub mod middlewares;
 pub mod states;
 mod telegram_application;

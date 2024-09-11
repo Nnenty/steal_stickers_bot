@@ -1,12 +1,5 @@
 use std::time::Duration;
 
-use grammers_client::{client::bots::InvocationError, Client as ClientGrammers};
-use grammers_tl_types::{
-    enums::{self, InputStickerSet},
-    functions::messages::GetStickerSet as GetSickerSetGrammers,
-    types::{self, InputStickerSetShortName},
-};
-
 use telers::{
     enums::ParseMode,
     event::{telegram::HandlerResult, EventReturn},
@@ -19,8 +12,13 @@ use telers::{
 
 use tracing::{debug, error};
 
-use crate::states::AddStickerState;
-use crate::{common::sticker_format, middlewares::client_application::Client};
+use crate::{
+    common::sticker_format, middlewares::client_application::Client,
+    telegram_application::get_owned_stolen_sticker_sets,
+};
+use crate::{states::AddStickerState, telegram_application::get_sticker_set_user_id};
+
+const MAX_STICKER_SET_LENGTH: usize = 120;
 
 pub async fn add_stickers<S: Storage>(
     bot: Bot,
@@ -123,6 +121,20 @@ pub async fn get_stolen_sticker_set<S: Storage>(
         }
     };
 
+    if let Err(err) =
+        get_owned_stolen_sticker_sets(&client, sticker_set_user_id, &bot_username).await
+    {
+        error!(%err, "failed to get user owned stolen sticker sets:");
+
+        bot.send(SendMessage::new(
+            message.chat.id(),
+            "Sorry, an error occurs :( Try send this sticker again:",
+        ))
+        .await?;
+
+        return Ok(EventReturn::Finish);
+    }
+
     // only panic if messages uses in channels, but i'm using private filter in main function
     let sender_user_id = message.from.expect("user not specified").id;
 
@@ -149,19 +161,20 @@ pub async fn get_stolen_sticker_set<S: Storage>(
         .stickers
         .len();
 
-    let message_delete = if 120 - set_length > 0 {
+    let message_delete = if MAX_STICKER_SET_LENGTH - set_length > 0 {
         bot.send(SendMessage::new(
                 message.chat.id(),
-                format!("Total length of this sticker pack = {}.\nThis means you can add a maximum of {} stickers, \
-                otherwise you will get error because the maximum size of a sticker pack in current time = 120 stickers.",
-                set_length, 120 - set_length),
+                format!("Total length of this sticker pack = {set_length}.\nThis means you can add a maximum of {} stickers, \
+                otherwise you will get error because the maximum size of a sticker pack in current time = {MAX_STICKER_SET_LENGTH} stickers.",
+                MAX_STICKER_SET_LENGTH - set_length),
             ))
             .await?
     } else {
         bot.send(SendMessage::new(
                 message.chat.id(),
-                "Sorry, but this sticker pack contains 120 stickers! :(\nYou cant add more stickers, because the maximum \
-                size of a sticker pack in current time = 120 stickers.\nTry send another pack(or delete some stickers from this sticker pack):",
+                format!("Sorry, but this sticker pack contains {MAX_STICKER_SET_LENGTH} stickers! :(\n\
+                You cant add more stickers, because the maximum size of a sticker pack in current time = {MAX_STICKER_SET_LENGTH} \
+                stickers.\nTry send another pack(or delete some stickers from this sticker pack):")
             ))
             .await?;
 
@@ -222,13 +235,13 @@ pub async fn get_stickers_to_add<S: Storage>(
 
             let sticker_vec_len = get_sticker_vec.len();
 
-            if set_length + sticker_vec_len >= 120 {
+            if set_length + sticker_vec_len >= MAX_STICKER_SET_LENGTH {
                 bot.send(SendMessage::new(
                     message.chat.id(),
-                    "Please, use command /done to add them (or /cancel if for some reason you change your \
+                    format!("Please, use command /done to add stickers (or /cancel if for some reason you change your \
                     mind about adding them), because the sum of the current stickers in the sticker pack \
-                    and the stickers you want to add to it has reached 120! All next stickers (if you continue sending) \
-                    will be ignored!",
+                    and the stickers you want to add to it has reached {MAX_STICKER_SET_LENGTH}! All next stickers (if you continue sending) \
+                    will be ignored!"),
                 ))
                 .await?;
 
@@ -355,32 +368,4 @@ pub async fn add_stickers_to_user_owned_sticker_set<S: Storage>(
     .await?;
 
     Ok(EventReturn::Finish)
-}
-
-async fn get_sticker_set_user_id(
-    set_name: &str,
-    client: &ClientGrammers,
-) -> Result<i64, InvocationError> {
-    let set_id = match client
-        .invoke(&GetSickerSetGrammers {
-            stickerset: InputStickerSet::ShortName(InputStickerSetShortName {
-                short_name: set_name.to_owned(),
-            }),
-            hash: 0,
-        })
-        .await?
-    {
-        enums::messages::StickerSet::Set(types::messages::StickerSet {
-            set: enums::StickerSet::Set(types::StickerSet { id, .. }),
-            ..
-        }) => id,
-        _ => todo!(),
-    };
-
-    let mut user_id = set_id >> 32;
-    if set_id >> 24 & 0xff == 1 {
-        user_id += 0x100000000
-    }
-
-    Ok(user_id)
 }

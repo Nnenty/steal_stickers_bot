@@ -1,10 +1,14 @@
 use std::{io, time::Duration};
-use tracing::error;
 
-use grammers_client::{
-    client::bots::AuthorizationError, Client, Config, FixedReconnect, InitParams, SignInError,
-};
+use grammers_client::{Client, Config, FixedReconnect, InitParams, SignInError};
 use grammers_session::Session;
+use grammers_tl_types::{
+    enums::{self, InputStickerSet},
+    functions::messages::{GetAllStickers, GetStickerSet},
+    types::{self, InputStickerSetShortName},
+};
+
+use tracing::error;
 
 mod constants;
 mod errors;
@@ -15,7 +19,7 @@ static RECONNECT_POLICY: FixedReconnect = FixedReconnect {
     delay: Duration::from_millis(100),
 };
 
-pub async fn client_connect(api_id: i32, api_hash: String) -> Result<Client, AuthorizationError> {
+pub async fn client_connect(api_id: i32, api_hash: String) -> Result<Client, errors::Error> {
     Ok(Client::connect(Config {
         session: Session::load_file_or_create(SESSION_FILE)?,
         api_id,
@@ -70,4 +74,69 @@ pub async fn client_authorize(
     }
 
     Ok(())
+}
+
+pub async fn get_owned_stolen_sticker_sets(
+    client: &Client,
+    user_id: i64,
+    bot_username: &str,
+) -> Result<Vec<(String, String)>, errors::Error> {
+    let sets: Vec<enums::StickerSet> =
+        match client.invoke(&GetAllStickers { hash: user_id }).await? {
+            enums::messages::AllStickers::Stickers(
+                types::messages::AllStickers { sets, .. },
+                ..,
+            ) => sets,
+            _ => todo!(),
+        };
+
+    let mut sets_names: Vec<(String, String)> = Vec::new();
+
+    sets.into_iter()
+        .filter(|set| {
+            let enums::StickerSet::Set(types::StickerSet {
+                short_name,
+                creator,
+                ..
+            }) = set;
+
+            creator.to_owned() && short_name.contains(format!("by_{bot_username}").as_str())
+        })
+        .for_each(|set| {
+            let enums::StickerSet::Set(types::StickerSet {
+                short_name, title, ..
+            }) = set;
+
+            sets_names.push((short_name, title));
+        });
+
+    Ok(sets_names)
+}
+
+pub async fn get_sticker_set_user_id(
+    set_name: &str,
+    client: &Client,
+) -> Result<i64, errors::Error> {
+    let set_id = match client
+        .invoke(&GetStickerSet {
+            stickerset: InputStickerSet::ShortName(InputStickerSetShortName {
+                short_name: set_name.to_owned(),
+            }),
+            hash: 0,
+        })
+        .await?
+    {
+        enums::messages::StickerSet::Set(types::messages::StickerSet {
+            set: enums::StickerSet::Set(types::StickerSet { id, .. }),
+            ..
+        }) => id,
+        _ => todo!(),
+    };
+
+    let mut user_id = set_id >> 32;
+    if set_id >> 24 & 0xff == 1 {
+        user_id += 0x100000000
+    }
+
+    Ok(user_id)
 }

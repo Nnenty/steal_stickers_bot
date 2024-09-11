@@ -10,6 +10,7 @@ use telers::{
     },
     Bot,
 };
+
 use tracing::error;
 
 use crate::{states::MyStickersState, texts::current_page_message};
@@ -153,7 +154,7 @@ pub async fn process_button<S: Storage>(
         }
     };
 
-    // process if user click to one button several times
+    // process if user click to one button several times in a row
     match fsm
         .get_value::<_, Box<str>>("previous_callback_query")
         .await
