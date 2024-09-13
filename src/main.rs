@@ -19,9 +19,11 @@ use clap::{Parser, Subcommand};
 use serde::Deserialize;
 use toml;
 
+pub mod application;
 pub mod bot_commands;
 pub mod core;
 pub mod database;
+pub mod entities;
 pub mod middlewares;
 pub mod states;
 mod telegram_application;

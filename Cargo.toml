@@ -7,6 +7,18 @@ edition = "2021"
 telers = {version = "1.0.0-alpha", features = ["memory-storage"]}
 tokio = { version = "1.36", features = ["macros"]}
 
+sea-query = "0.30"
+sea-query-binder = { version = "0.5", features = [
+    "sqlx-postgres",
+] }
+sqlx = { version = "0.7", features = [
+    "runtime-tokio-rustls",
+    "postgres",
+    "migrate",
+    "time",
+] }
+
+# on crates.io old version
 grammers-client = { git = "https://github.com/Lonami/grammers" }
 grammers-tl-types = { git = "https://github.com/Lonami/grammers" }
 grammers-session = { git = "https://github.com/Lonami/grammers" }
