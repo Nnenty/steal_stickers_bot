@@ -12,8 +12,8 @@ use crate::{
             traits::UserRepo,
         },
     },
-    database::models::user::User as UserModel,
     entities::user::User,
+    infrastructure::database::models::user::User as UserModel,
 };
 
 pub struct UserImpl<Conn> {
@@ -35,7 +35,7 @@ impl UserRepo for UserImpl<sqlx::PgConnection> {
             .values_panic([user.tg_id().into(), user.sets_number().into()])
             .build_sqlx(PostgresQueryBuilder);
 
-        debug!(sql_query);
+        debug!(sql_query, ?values);
 
         sqlx::query_with(&sql_query, values)
             .execute(&mut self.conn)
@@ -67,7 +67,7 @@ impl UserRepo for UserImpl<sqlx::PgConnection> {
             .and_where(Expr::col(Alias::new("tg_id")).eq(user.tg_id()))
             .build_sqlx(PostgresQueryBuilder);
 
-        debug!(sql_query);
+        debug!(sql_query, ?values);
 
         sqlx::query_as_with(&sql_query, values)
             .fetch_one(&mut self.conn)
