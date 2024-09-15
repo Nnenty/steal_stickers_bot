@@ -1,4 +1,6 @@
-#[derive(Debug, Clone, PartialEq, Eq)]
+use sqlx::FromRow;
+
+#[derive(Debug, Clone, PartialEq, Eq, FromRow)]
 pub struct GetByTgID {
     tg_id: i64,
 }

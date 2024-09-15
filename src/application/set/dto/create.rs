@@ -19,10 +19,10 @@ impl<'a> Create<'a> {
     pub const fn tg_id(&self) -> i64 {
         self.tg_id
     }
-    pub const fn short_name(&self) -> &str {
+    pub const fn short_name(&self) -> &'a str {
         self.short_name
     }
-    pub const fn title(&self) -> &str {
+    pub const fn title(&self) -> &'a str {
         self.title
     }
 }
