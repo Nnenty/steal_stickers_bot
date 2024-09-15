@@ -1,2 +1,2 @@
-pub mod sets;
+pub mod set;
 pub mod user;

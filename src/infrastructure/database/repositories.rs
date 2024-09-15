@@ -1,5 +1,6 @@
 use crate::application::common::exceptions::{ApplicationException, RepoError, RepoKind};
 
+pub mod set;
 pub mod user;
 
 impl From<sqlx::Error> for RepoError {

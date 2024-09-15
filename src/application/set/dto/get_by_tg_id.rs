@@ -1,6 +1,4 @@
-use sqlx::prelude::FromRow;
-
-#[derive(Debug, Clone, PartialEq, Eq, FromRow)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct GetByTgID {
     tg_id: i64,
 }

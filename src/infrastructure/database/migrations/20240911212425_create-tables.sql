@@ -9,4 +9,5 @@ CREATE TABLE sets (
     tg_id BIGINT NOT NULL,
     short_name TEXT NOT NULL,
     title TEXT NOT NULL,
+    UNIQUE(short_name)
 );
