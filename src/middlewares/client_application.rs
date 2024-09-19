@@ -26,6 +26,7 @@ impl From<ClientGrammers> for Client {
     }
 }
 
+#[derive(Debug)]
 pub struct ClientApplication {
     pub key: &'static str,
     pub client: Mutex<ClientGrammers>,

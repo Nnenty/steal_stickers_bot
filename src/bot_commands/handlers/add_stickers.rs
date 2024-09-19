@@ -53,7 +53,7 @@ pub async fn get_stolen_sticker_set<S: Storage>(
         None => {
             bot.send(SendMessage::new(
                 message.chat.id(),
-                "This sticker pack is without name! Try to send another sticker pack:",
+                "This sticker is without sticker pack! Try to send another sticker pack:",
             ))
             .await?;
 
@@ -90,7 +90,7 @@ pub async fn get_stolen_sticker_set<S: Storage>(
     }
 
     // if function doesnt execute in 3 second, send error message
-    let sticker_set_user_id = match tokio::time::timeout(
+    let user_id = match tokio::time::timeout(
         Duration::from_secs(3),
         get_sticker_set_user_id(&sticker_set_name, &client),
     )
@@ -121,9 +121,7 @@ pub async fn get_stolen_sticker_set<S: Storage>(
         }
     };
 
-    if let Err(err) =
-        get_owned_stolen_sticker_sets(&client, sticker_set_user_id, &bot_username).await
-    {
+    if let Err(err) = get_owned_stolen_sticker_sets(&client, user_id, &bot_username).await {
         error!(%err, "failed to get user owned stolen sticker sets:");
 
         bot.send(SendMessage::new(
@@ -138,7 +136,7 @@ pub async fn get_stolen_sticker_set<S: Storage>(
     // only panic if messages uses in channels, but i'm using private filter in main function
     let sender_user_id = message.from.expect("user not specified").id;
 
-    if sender_user_id != sticker_set_user_id {
+    if sender_user_id != user_id {
         bot.send(
             SendMessage::new(
                 message.chat.id(),

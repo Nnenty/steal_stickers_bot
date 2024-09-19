@@ -1,4 +1,4 @@
-use crate::entities::user::User as UserEntitie;
+use crate::domain::entities::user::User as UserEntitie;
 use sqlx::{types::time::OffsetDateTime, FromRow};
 
 #[derive(Debug, Clone, PartialEq, Eq, FromRow)]

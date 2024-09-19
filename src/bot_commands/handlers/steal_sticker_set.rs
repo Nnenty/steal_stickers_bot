@@ -50,7 +50,7 @@ pub async fn steal_sticker_set_name<S: Storage>(
         None => {
             bot.send(SendMessage::new(
                 message.chat.id(),
-                "This sticker pack is without name! Try send to another sticker pack:",
+                "This sticker is without sticker pack! Try to send another sticker pack:",
             ))
             .await?;
 

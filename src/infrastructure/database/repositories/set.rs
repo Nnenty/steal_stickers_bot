@@ -6,32 +6,32 @@ use tracing::debug;
 
 use crate::{
     application::{
-        common::exceptions::{RepoError, RepoKind},
+        common::exceptions::RepoKind,
         set::{
             dto::{
                 create::Create, delete_by_short_name::DeleteByShortName,
                 get_by_short_name::GetByShortName, get_by_tg_id::GetByTgID,
             },
-            exceptions::{SetShortNameAlreadyExist, SetShortNameNotExist},
+            exceptions::{SetShortNameAlreadyExist, SetShortNameNotExist, SetTgIdNotExist},
             traits::SetRepo,
         },
     },
-    entities::set::Set,
+    domain::entities::set::Set,
     infrastructure::database::models::set::Set as SetModel,
 };
 
-pub struct SetImpl<Conn> {
+pub struct SetRepoImpl<Conn> {
     conn: Conn,
 }
 
-impl<Conn> SetImpl<Conn> {
+impl<Conn> SetRepoImpl<Conn> {
     pub fn new(conn: Conn) -> Self {
         Self { conn }
     }
 }
 
 #[async_trait]
-impl<'b> SetRepo for SetImpl<&'b mut PgConnection> {
+impl<'b> SetRepo for SetRepoImpl<&'b mut PgConnection> {
     async fn create<'a>(
         &'a mut self,
         set: Create<'a>,
@@ -50,7 +50,7 @@ impl<'b> SetRepo for SetImpl<&'b mut PgConnection> {
             ])
             .build_sqlx(PostgresQueryBuilder);
 
-        debug!(sql_query, ?values);
+        debug!("SQL query: {sql_query};\nValues for query: {values:?}");
 
         sqlx::query_with(&sql_query, values)
             .execute(&mut *self.conn)
@@ -71,6 +71,7 @@ impl<'b> SetRepo for SetImpl<&'b mut PgConnection> {
                 RepoKind::unexpected(err)
             })
     }
+
     async fn delete_by_short_name<'a>(
         &'a mut self,
         set: DeleteByShortName<'a>,
@@ -80,10 +81,10 @@ impl<'b> SetRepo for SetImpl<&'b mut PgConnection> {
             .and_where(Expr::col(Alias::new("short_name")).eq(set.short_name()))
             .build_sqlx(PostgresQueryBuilder);
 
-        debug!(sql_query, ?values);
+        debug!("SQL query: {sql_query};\nValues for query: {values:?}");
 
         sqlx::query_with(&sql_query, values)
-            .fetch_one(&mut *self.conn)
+            .execute(&mut *self.conn)
             .await
             .map(|_| ())
             .map_err(|err| {
@@ -98,7 +99,10 @@ impl<'b> SetRepo for SetImpl<&'b mut PgConnection> {
             })
     }
 
-    async fn get_by_tg_id(&mut self, set: GetByTgID) -> Result<Vec<Set>, RepoError> {
+    async fn get_by_tg_id(
+        &mut self,
+        set: GetByTgID,
+    ) -> Result<Vec<Set>, RepoKind<SetTgIdNotExist>> {
         let (sql_query, values) = Query::select()
             .columns([
                 Alias::new("tg_id"),
@@ -109,15 +113,22 @@ impl<'b> SetRepo for SetImpl<&'b mut PgConnection> {
             .and_where(Expr::col(Alias::new("tg_id")).eq(set.tg_id()))
             .build_sqlx(PostgresQueryBuilder);
 
-        debug!(sql_query, ?values);
+        debug!("SQL query: {sql_query};\nValues for query: {values:?}");
 
         sqlx::query_as_with(&sql_query, values)
             .fetch_all(&mut *self.conn)
             .await
             .map(|set_model: Vec<SetModel>| set_model.into_iter().map(Into::into).collect())
-            .map_err(Into::into)
+            .map_err(|err| {
+                if let sqlx::Error::RowNotFound = err {
+                    return RepoKind::exception(SetTgIdNotExist::new(set.tg_id(), err.to_string()));
+                }
+
+                RepoKind::unexpected(err)
+            })
     }
-    async fn get_by_short_name<'a>(
+
+    async fn get_one_by_short_name<'a>(
         &'a mut self,
         set: GetByShortName<'a>,
     ) -> Result<Set, RepoKind<SetShortNameNotExist<'a>>> {
@@ -131,7 +142,7 @@ impl<'b> SetRepo for SetImpl<&'b mut PgConnection> {
             .and_where(Expr::col(Alias::new("short_name")).eq(set.short_name()))
             .build_sqlx(PostgresQueryBuilder);
 
-        debug!(sql_query, ?values);
+        debug!("SQL query: {sql_query};\nValues for query: {values:?}");
 
         sqlx::query_as_with(&sql_query, values)
             .fetch_one(&mut *self.conn)

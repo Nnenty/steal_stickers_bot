@@ -42,20 +42,20 @@ pub async fn my_stickers<S: Storage>(
 
     let mut buttons: Vec<Vec<InlineKeyboardButton>> = Vec::new();
 
-    let page_count =
-        match get_page_buttons(&database_result, STICKER_SETS_NUMBER_PER_PAGE, &mut buttons) {
-            Ok(pages) => pages,
-            Err(_) => {
-                bot.send(SendMessage::new(
-                    message.chat.id(),
-                    "You don't have a single stolen sticker pack! \
+    let page_count = match get_buttons(&database_result, STICKER_SETS_NUMBER_PER_PAGE, &mut buttons)
+    {
+        Ok(pages) => pages,
+        Err(_) => {
+            bot.send(SendMessage::new(
+                message.chat.id(),
+                "You don't have a single stolen sticker pack! \
             Steal any sticker pack using the /steal_pack command and it will appear in this list!",
-                ))
-                .await?;
+            ))
+            .await?;
 
-                return Ok(EventReturn::Finish);
-            }
-        };
+            return Ok(EventReturn::Finish);
+        }
+    };
 
     let inline_keyboard_markup = InlineKeyboardMarkup::new(buttons);
     let inline_keyboard = ReplyMarkup::InlineKeyboard(inline_keyboard_markup.clone());
@@ -92,7 +92,7 @@ pub async fn my_stickers<S: Storage>(
     Ok(EventReturn::Finish)
 }
 
-fn get_page_buttons(
+fn get_buttons(
     list: &[String],
     sticker_sets_number_per_page: usize,
     buttons: &mut Vec<Vec<InlineKeyboardButton>>,

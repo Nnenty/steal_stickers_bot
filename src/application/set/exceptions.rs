@@ -37,3 +37,21 @@ impl<'a> SetShortNameNotExist<'a> {
 }
 
 impl<'a> ApplicationException for SetShortNameNotExist<'a> {}
+
+#[derive(Debug, thiserror::Error)]
+#[error("sticker sets with Telegram ID `{tg_id}` not exists: {message}")]
+pub struct SetTgIdNotExist {
+    tg_id: i64,
+    message: Cow<'static, str>,
+}
+
+impl SetTgIdNotExist {
+    pub fn new(tg_id: i64, message: impl Into<Cow<'static, str>>) -> Self {
+        Self {
+            tg_id,
+            message: message.into(),
+        }
+    }
+}
+
+impl ApplicationException for SetTgIdNotExist {}

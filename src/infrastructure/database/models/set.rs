@@ -1,4 +1,4 @@
-use crate::entities::set::Set as SetEntitie;
+use crate::domain::entities::set::Set as SetEntitie;
 use sqlx::FromRow;
 
 #[derive(Debug, Clone, PartialEq, Eq, FromRow)]

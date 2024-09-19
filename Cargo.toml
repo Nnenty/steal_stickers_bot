@@ -4,16 +4,16 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
+# main crates
 telers = {version = "1.0.0-alpha", features = ["memory-storage"]}
 tokio = { version = "1.36", features = ["macros"]}
 
-sea-query = "0.30"
-sea-query-binder = { version = "0.5", features = [
-    "sqlx-postgres",
-] }
+sea-query = "0.31"
+sea-query-binder = { version = "0.6.0", features = ["sqlx-postgres"] }
 sqlx = { version = "0.7", features = [
     "postgres",
     "time",
+    "runtime-tokio"
 ] }
 
 # on crates.io old version

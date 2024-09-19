@@ -3,7 +3,7 @@
 # THAT THERE IS A `cargo.toml` line IN THE .gitignore FILE!
 # (in the original bot in .gitignore this line is written by default)
 
-# remove .example from name of file
+# copy this file and remove `.example` from name of file
 
 [bot]
 bot_token = ""
@@ -18,3 +18,11 @@ api_hash = ""
 phone_number = ""
 # enter only if you have two-step verification with a password enabled
 password = ""
+
+[tracing]
+# by default `debug` level
+log_level = "debug"
+
+[database]
+# looks like: "postgres://{username}:{password}@{host}:{port}/{db_name}"
+db_url = ""

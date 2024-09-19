@@ -13,22 +13,22 @@ use crate::{
             traits::UserRepo,
         },
     },
-    entities::user::User,
+    domain::entities::user::User,
     infrastructure::database::models::user::User as UserModel,
 };
 
-pub struct UserImpl<Conn> {
+pub struct UserRepoImpl<Conn> {
     conn: Conn,
 }
 
-impl<Conn> UserImpl<Conn> {
+impl<Conn> UserRepoImpl<Conn> {
     pub fn new(conn: Conn) -> Self {
         Self { conn }
     }
 }
 
 #[async_trait]
-impl UserRepo for UserImpl<&mut PgConnection> {
+impl UserRepo for UserRepoImpl<&mut PgConnection> {
     async fn create(&mut self, user: Create) -> Result<(), RepoKind<UserTgIdAlreadyExists>> {
         let (sql_query, values) = Query::insert()
             .into_table(Alias::new("users"))
@@ -36,7 +36,7 @@ impl UserRepo for UserImpl<&mut PgConnection> {
             .values_panic([user.tg_id().into(), user.sets_number().into()])
             .build_sqlx(PostgresQueryBuilder);
 
-        debug!(sql_query, ?values);
+        debug!("SQL query: {sql_query};\nValues for query: {values:?}");
 
         sqlx::query_with(&sql_query, values)
             .execute(&mut *self.conn)
@@ -58,6 +58,7 @@ impl UserRepo for UserImpl<&mut PgConnection> {
                 RepoKind::unexpected(err)
             })
     }
+
     async fn get_by_tg_id(&mut self, user: GetByTgID) -> Result<User, RepoKind<UserTgIdNotExist>> {
         let (sql_query, values) = Query::select()
             .columns([
@@ -69,7 +70,7 @@ impl UserRepo for UserImpl<&mut PgConnection> {
             .and_where(Expr::col(Alias::new("tg_id")).eq(user.tg_id()))
             .build_sqlx(PostgresQueryBuilder);
 
-        debug!(sql_query, ?values);
+        debug!("SQL query: {sql_query};\nValues for query: {values:?}");
 
         sqlx::query_as_with(&sql_query, values)
             .fetch_one(&mut *self.conn)
