@@ -13,9 +13,10 @@ use telers::{
 
 use tracing::error;
 
-use crate::{states::MyStickersState, texts::current_page_message};
-
-pub const STICKER_SETS_NUMBER_PER_PAGE: usize = 50;
+use crate::{
+    bot_commands::states::MyStickersState, core::stickers::constants::STICKER_SETS_NUMBER_PER_PAGE,
+    texts::current_page_message,
+};
 
 #[derive(Debug, Clone)]
 struct DoesntHaveStolenStickers;

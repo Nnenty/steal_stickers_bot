@@ -1,6 +1,5 @@
 use std::process;
 
-use sqlx::Postgres;
 use telers::{
     client::Reqwest,
     enums::ContentType as ContentTypeEnum,
@@ -26,16 +25,16 @@ pub mod core;
 pub mod domain;
 pub mod infrastructure;
 pub mod middlewares;
-pub mod states;
 mod telegram_application;
 
 use bot_commands::{
     add_stickers_command, cancel_command, my_stickers, process_non_command, process_non_sticker,
     source_command, start_command, steal_sticker_set_command,
 };
-use config::{Application, AuthCredentials, BotConfig, ConfigToml, DatabaseConfig, Tracing};
+use config::ConfigToml;
 use core::{common, texts};
-use middlewares::ClientApplication;
+use infrastructure::database::uow::UoWFactory;
+use middlewares::{ClientApplication, DatabaseMiddleware};
 use telegram_application::{client_authorize, client_connect};
 
 async fn set_commands(bot: Bot) -> Result<(), HandlerError> {
@@ -75,26 +74,18 @@ enum Commands {
 
 #[tokio::main(flavor = "current_thread")]
 async fn main() {
-    let config = std::fs::read_to_string("configs/config.toml").expect("wrong path");
-    let ConfigToml {
-        application: Application { api_id, api_hash },
-        auth: AuthCredentials {
-            phone_number,
-            password,
-        },
-        bot: BotConfig { bot_token },
-        tracing: Tracing { log_level },
-        database: DatabaseConfig { db_url },
-    } = toml::from_str(&config).unwrap();
+    let config = std::fs::read_to_string("configs/config.toml")
+        .expect("error occurded while read config file");
+    let config: ConfigToml = toml::from_str(&config).unwrap();
 
     let log_level = match std::env::var("LOGGING_LEVEL") {
         Ok(log_level) => log_level,
-        Err(_) => log_level,
+        Err(_) => config.tracing.log_level,
     };
 
     let db_url = match std::env::var("DATABASE_URL") {
         Ok(db_url) => db_url,
-        Err(_) => db_url,
+        Err(_) => config.database.db_url,
     };
 
     tracing_subscriber::registry()
@@ -108,10 +99,12 @@ async fn main() {
         )
         .init();
 
+    let (api_id, api_hash) = (config.tg_app.api_id, config.tg_app.api_hash);
+
     let client = match client_connect(api_id, api_hash.clone()).await {
         Ok(client) => client,
         Err(err) => {
-            error!(?err, "An error occurded while client connected:");
+            error!(?err, "An error occurded while client connect:");
 
             process::exit(1);
         }
@@ -120,9 +113,14 @@ async fn main() {
     let cli = Cli::parse();
 
     if Commands::Auth == cli.command {
-        if let Err(err) = client_authorize(&client, phone_number.as_str(), password.as_str()).await
+        if let Err(err) = client_authorize(
+            &client,
+            &config.auth.phone_number.as_str(),
+            &config.auth.password.as_str(),
+        )
+        .await
         {
-            error!(?err, "An error occurded while client authorized:");
+            error!(?err, "An error occurded while client authorize:");
 
             process::exit(1);
         };
@@ -137,24 +135,24 @@ async fn main() {
         process::exit(1);
     }
 
-    let pool = match sqlx::Pool::<Postgres>::connect(&db_url).await {
+    let pool = match sqlx::PgPool::connect(&db_url).await {
         Ok(pool) => pool,
         Err(err) => {
-            error!(?err, "An error occurded while connected to database:");
+            error!(?err, "An error occurded while connect to database:");
 
             process::exit(1);
         }
     };
 
-    let bot = Bot::new(bot_token);
+    let bot = Bot::new(config.bot.bot_token);
 
     let mut main_router: Router<Reqwest> = Router::new("main");
 
     // only private because in channels may be many errors
     let mut router = Router::new("private");
 
-    // prepare middlewares
     let storage = MemoryStorage::new();
+
     router
         .update
         .outer_middlewares
@@ -164,6 +162,11 @@ async fn main() {
         .message
         .outer_middlewares
         .register(ClientApplication::new(client, api_id, api_hash));
+
+    router
+        .message
+        .outer_middlewares
+        .register(DatabaseMiddleware::new(UoWFactory::new(pool)));
 
     process_non_command(
         &mut router,
@@ -178,12 +181,19 @@ async fn main() {
         ],
     )
     .await;
+
     start_command(&mut router, &["start", "help"]).await;
+
     source_command(&mut router, &["src", "source"]).await;
+
     cancel_command(&mut router, &["cancel"]).await;
+
     add_stickers_command(&mut router, "add_stickers", "done").await;
+
     steal_sticker_set_command(&mut router, "steal_pack").await;
+
     my_stickers(&mut router, "my_stickers").await;
+
     process_non_sticker(&mut router, ContentTypeEnum::Sticker).await;
 
     main_router.include(router);
@@ -197,7 +207,7 @@ async fn main() {
 
     match dispatcher
         .to_service_provider_default()
-        .expect("error occurded while converted the service factory to the service")
+        .expect("error occurded while convert the service factory to the service")
         .run_polling()
         .await
     {

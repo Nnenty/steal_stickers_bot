@@ -14,7 +14,7 @@ use telers::{
 };
 use tracing::{debug, error};
 
-use crate::states::StealStickerSetState;
+use crate::bot_commands::states::StealStickerSetState;
 use crate::{
     common::{generate_sticker_set_name_and_link, sticker_format},
     texts::sticker_set_message,

@@ -1,4 +1,4 @@
-use crate::states::{AddStickerState, MyStickersState, StealStickerSetState};
+use crate::bot_commands::states::{AddStickerState, MyStickersState, StealStickerSetState};
 use telers::{
     client::Reqwest,
     enums::{ChatType as ChatTypeEnum, ContentType as ContentTypeEnum},

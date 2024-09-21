@@ -13,12 +13,13 @@ use telers::{
 use tracing::{debug, error};
 
 use crate::{
+    bot_commands::states::AddStickerState, core::stickers::constants::MAX_STICKER_SET_LENGTH,
+    telegram_application::get_sticker_set_user_id,
+};
+use crate::{
     common::sticker_format, middlewares::client_application::Client,
     telegram_application::get_owned_stolen_sticker_sets,
 };
-use crate::{states::AddStickerState, telegram_application::get_sticker_set_user_id};
-
-const MAX_STICKER_SET_LENGTH: usize = 120;
 
 pub async fn add_stickers<S: Storage>(
     bot: Bot,

@@ -3,7 +3,7 @@ use serde::Deserialize;
 #[derive(Deserialize)]
 pub struct ConfigToml {
     pub bot: BotConfig,
-    pub application: Application,
+    pub tg_app: Application,
     pub auth: AuthCredentials,
     pub tracing: Tracing,
     pub database: DatabaseConfig,
