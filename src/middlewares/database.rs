@@ -1,32 +1,34 @@
-// use async_trait::async_trait;
-// use sqlx::{PgConnection, PgPool, Pool, Postgres};
-// use telers::{
-//     errors::EventErrorKind,
-//     event::EventReturn,
-//     middlewares::{outer::MiddlewareResponse, OuterMiddleware},
-//     router::Request,
-// };
+use async_trait::async_trait;
+use telers::{
+    errors::EventErrorKind,
+    event::EventReturn,
+    middlewares::{outer::MiddlewareResponse, OuterMiddleware},
+    router::Request,
+};
 
-// #[derive(Debug)]
-// pub struct Database<Pool> {
-//     pool: Pool,
-// }
+use crate::application::common::traits::uow::UoWFactory;
 
-// impl<PgPool> Database<PgPool> {
-//     pub fn new(pool: PgPool) -> Self {
-//         Self { pool }
-//     }
-// }
+#[derive(Debug)]
+pub struct Database<UoWF> {
+    uow_factory: UoWF,
+}
 
-// // #[async_trait]
-// // impl OuterMiddleware for Database<UoW<&mut PgConnection>> {
-// //     async fn call(&self, request: Request) -> Result<MiddlewareResponse, EventErrorKind> {
-// //         let pool = Pool::<Postgres>::connect("postgres://admin:admin@localhost/test_db")
-// //             .await
-// //             .unwrap();
+impl<UoWF> Database<UoWF> {
+    pub fn new(uow_factory: UoWF) -> Self {
+        Self { uow_factory }
+    }
+}
 
-// //         // request.context.insert("uow", Box::new(self.pool.clone()));
+#[async_trait]
+impl<UoWF> OuterMiddleware for Database<UoWF>
+where
+    UoWF: Send + Sync + UoWFactory + Clone + 'static,
+{
+    async fn call(&self, request: Request) -> Result<MiddlewareResponse, EventErrorKind> {
+        request
+            .context
+            .insert("uow_factory", Box::new(self.uow_factory.clone()));
 
-// //         Ok((request, EventReturn::default()))
-// //     }
-// // }
+        Ok((request, EventReturn::default()))
+    }
+}

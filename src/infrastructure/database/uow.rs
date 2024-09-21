@@ -34,12 +34,23 @@ pub struct UoWFactory<DB: Database> {
     pool: Pool<DB>,
 }
 
+pub struct UoW<DB: Database> {
+    pool: Pool<DB>,
+    transaction: Option<Transaction<'static, DB>>,
+}
+
 impl<DB> UoWFactory<DB>
 where
     DB: Database,
 {
     pub const fn new(pool: Pool<DB>) -> Self {
         Self { pool }
+    }
+}
+
+impl<DB: Database> UoW<DB> {
+    pub fn new(pool: Pool<DB>, transaction: Option<Transaction<'static, DB>>) -> Self {
+        Self { pool, transaction }
     }
 }
 
@@ -51,17 +62,6 @@ impl<DB: Database> UoWFactoryTrait for UoWFactory<DB> {
     }
 }
 
-pub struct UoW<DB: Database> {
-    pool: Pool<DB>,
-    transaction: Option<Transaction<'static, DB>>,
-}
-
-impl<DB: Database> UoW<DB> {
-    pub fn new(pool: Pool<DB>, transaction: Option<Transaction<'static, DB>>) -> Self {
-        Self { pool, transaction }
-    }
-}
-
 #[async_trait]
 impl<DB> UnitOfWork for UoW<DB>
 where
@@ -69,7 +69,7 @@ where
     for<'a> UserRepoImpl<&'a mut DB::Connection>: UserRepo,
     for<'a> SetRepoImpl<&'a mut DB::Connection>: SetRepo,
 {
-    type Connection<'a> = &'a mut DB::Connection where Self: 'a;
+    type Connection<'a> = &'a mut DB::Connection;
 
     async fn connect(&mut self) -> Result<Self::Connection<'_>, BeginError> {
         if self.transaction.is_none() {

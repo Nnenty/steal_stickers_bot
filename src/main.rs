@@ -197,7 +197,7 @@ async fn main() {
 
     match dispatcher
         .to_service_provider_default()
-        .unwrap()
+        .expect("error occurded while converted the service factory to the service")
         .run_polling()
         .await
     {
