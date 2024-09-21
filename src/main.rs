@@ -1,5 +1,6 @@
 use std::process;
 
+use sqlx::Postgres;
 use telers::{
     client::Reqwest,
     enums::ContentType as ContentTypeEnum,
@@ -11,8 +12,6 @@ use telers::{
     types::{BotCommand, BotCommandScopeAllPrivateChats},
     Bot, Dispatcher, Router,
 };
-
-use sqlx::Connection as _;
 
 use tracing::{debug, error};
 use tracing_subscriber::{fmt, layer::SubscriberExt as _, util::SubscriberInitExt as _, EnvFilter};
@@ -109,15 +108,6 @@ async fn main() {
         )
         .init();
 
-    let _ = match sqlx::PgConnection::connect(&db_url).await {
-        Ok(pool) => pool,
-        Err(err) => {
-            error!(?err, "An error occurded while connected to database:");
-
-            process::exit(1);
-        }
-    };
-
     let client = match client_connect(api_id, api_hash.clone()).await {
         Ok(client) => client,
         Err(err) => {
@@ -147,6 +137,15 @@ async fn main() {
         process::exit(1);
     }
 
+    let pool = match sqlx::Pool::<Postgres>::connect(&db_url).await {
+        Ok(pool) => pool,
+        Err(err) => {
+            error!(?err, "An error occurded while connected to database:");
+
+            process::exit(1);
+        }
+    };
+
     let bot = Bot::new(bot_token);
 
     let mut main_router: Router<Reqwest> = Router::new("main");
@@ -166,9 +165,6 @@ async fn main() {
         .outer_middlewares
         .register(ClientApplication::new(client, api_id, api_hash));
 
-    // all bot commands
-    // -------------------------------------------------------------------------------
-
     process_non_command(
         &mut router,
         &[
@@ -187,10 +183,8 @@ async fn main() {
     cancel_command(&mut router, &["cancel"]).await;
     add_stickers_command(&mut router, "add_stickers", "done").await;
     steal_sticker_set_command(&mut router, "steal_pack").await;
-    process_non_sticker(&mut router, ContentTypeEnum::Sticker).await;
     my_stickers(&mut router, "my_stickers").await;
-
-    // -------------------------------------------------------------------------------
+    process_non_sticker(&mut router, ContentTypeEnum::Sticker).await;
 
     main_router.include(router);
     main_router.startup.register(set_commands, (bot.clone(),));

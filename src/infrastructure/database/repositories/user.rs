@@ -32,8 +32,8 @@ impl UserRepo for UserRepoImpl<&mut PgConnection> {
     async fn create(&mut self, user: Create) -> Result<(), RepoKind<UserTgIdAlreadyExists>> {
         let (sql_query, values) = Query::insert()
             .into_table(Alias::new("users"))
-            .columns([Alias::new("tg_id"), Alias::new("sets_number")])
-            .values_panic([user.tg_id().into(), user.sets_number().into()])
+            .columns([Alias::new("tg_id")])
+            .values_panic([user.tg_id().into()])
             .build_sqlx(PostgresQueryBuilder);
 
         debug!("SQL query: {sql_query};\nValues for query: {values:?}");
