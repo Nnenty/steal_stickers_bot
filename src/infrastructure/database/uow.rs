@@ -1,5 +1,6 @@
 use async_trait::async_trait;
 use sqlx::{Database, Pool, Transaction};
+use telers::FromContext;
 
 use super::repositories::{set::SetRepoImpl, user::UserRepoImpl};
 use crate::application::{
@@ -29,9 +30,18 @@ impl From<sqlx::Error> for RollbackError {
     }
 }
 
-#[derive(Clone)]
+#[derive(FromContext)]
+#[context(key = "uow_factory")]
 pub struct UoWFactory<DB: Database> {
     pool: Pool<DB>,
+}
+
+impl<DB: Database> Clone for UoWFactory<DB> {
+    fn clone(&self) -> Self {
+        Self {
+            pool: self.pool.clone(),
+        }
+    }
 }
 
 pub struct UoW<DB: Database> {
@@ -39,10 +49,7 @@ pub struct UoW<DB: Database> {
     transaction: Option<Transaction<'static, DB>>,
 }
 
-impl<DB> UoWFactory<DB>
-where
-    DB: Database,
-{
+impl<DB: Database> UoWFactory<DB> {
     pub const fn new(pool: Pool<DB>) -> Self {
         Self { pool }
     }
@@ -54,7 +61,12 @@ impl<DB: Database> UoW<DB> {
     }
 }
 
-impl<DB: Database> UoWFactoryTrait for UoWFactory<DB> {
+impl<DB> UoWFactoryTrait for UoWFactory<DB>
+where
+    DB: Database,
+    for<'a> UserRepoImpl<&'a mut DB::Connection>: UserRepo,
+    for<'a> SetRepoImpl<&'a mut DB::Connection>: SetRepo,
+{
     type UoW = UoW<DB>;
 
     fn create_uow(&self) -> Self::UoW {

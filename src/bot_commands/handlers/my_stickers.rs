@@ -1,8 +1,8 @@
-use std::fmt;
+use std::borrow::Cow;
 
 use telers::{
     event::{telegram::HandlerResult, EventReturn},
-    fsm::{Context, Storage},
+    fsm::{Context as FSMContext, Storage},
     methods::{EditMessageText, SendMessage},
     types::{
         CallbackQuery, ChatIdKind, InlineKeyboardButton, InlineKeyboardMarkup, Message,
@@ -14,24 +14,36 @@ use telers::{
 use tracing::error;
 
 use crate::{
-    bot_commands::states::MyStickersState, core::stickers::constants::STICKER_SETS_NUMBER_PER_PAGE,
+    application::common::traits::uow::{UoW, UoWFactory as UoWFactoryTrait},
+    bot_commands::states::MyStickersState,
+    core::stickers::constants::STICKER_SETS_NUMBER_PER_PAGE,
     texts::current_page_message,
 };
 
-#[derive(Debug, Clone)]
-struct DoesntHaveStolenStickers;
+#[derive(Debug, Clone, thiserror::Error)]
+#[error("{message}")]
+struct DontHaveStolenStickers {
+    message: Cow<'static, str>,
+}
 
-impl fmt::Display for DoesntHaveStolenStickers {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "user does not have any stolen stickers by this bot")
+impl DontHaveStolenStickers {
+    fn new(message: impl Into<Cow<'static, str>>) -> Self {
+        Self {
+            message: message.into(),
+        }
     }
 }
 
-pub async fn my_stickers<S: Storage>(
+pub async fn my_stickers<S, UoWFactory>(
     bot: Bot,
     message: MessageText,
-    fsm: Context<S>,
-) -> HandlerResult {
+    fsm: FSMContext<S>,
+    uow_factory: UoWFactory,
+) -> HandlerResult
+where
+    UoWFactory: UoWFactoryTrait,
+    S: Storage,
+{
     fsm.finish().await.map_err(Into::into)?;
 
     // In the future, a database will be added, and the real response from the database will be used instead of this
@@ -46,13 +58,9 @@ pub async fn my_stickers<S: Storage>(
     let page_count = match get_buttons(&database_result, STICKER_SETS_NUMBER_PER_PAGE, &mut buttons)
     {
         Ok(pages) => pages,
-        Err(_) => {
-            bot.send(SendMessage::new(
-                message.chat.id(),
-                "You don't have a single stolen sticker pack! \
-            Steal any sticker pack using the /steal_pack command and it will appear in this list!",
-            ))
-            .await?;
+        Err(err) => {
+            bot.send(SendMessage::new(message.chat.id(), err.to_string()))
+                .await?;
 
             return Ok(EventReturn::Finish);
         }
@@ -93,51 +101,16 @@ pub async fn my_stickers<S: Storage>(
     Ok(EventReturn::Finish)
 }
 
-fn get_buttons(
-    list: &[String],
-    sticker_sets_number_per_page: usize,
-    buttons: &mut Vec<Vec<InlineKeyboardButton>>,
-) -> Result<u32, DoesntHaveStolenStickers> {
-    let mut page_count: u32 = 0;
-    let mut current_row_index = 0;
-
-    if list.len() > sticker_sets_number_per_page || list.len() > 0 {
-        list.iter()
-            .enumerate()
-            .filter(|(index, _)| index % sticker_sets_number_per_page == 0)
-            .for_each(|_| {
-                // create a new row every 5 buttons
-                if page_count % 5 == 0 {
-                    page_count += 1;
-                    current_row_index += 1;
-
-                    buttons.push(vec![InlineKeyboardButton::new(format!(
-                        "page {page_count}",
-                    ))
-                    .callback_data(format!("{page_count}",))])
-                // else push button into current row
-                } else {
-                    page_count += 1;
-
-                    buttons[current_row_index - 1].push(
-                        InlineKeyboardButton::new(format!("Page {page_count}",))
-                            .callback_data(format!("{page_count}",)),
-                    );
-                }
-            })
-    // otherwise user does not have sticker sets stolen by this bot
-    } else {
-        return Err(DoesntHaveStolenStickers);
-    };
-
-    Ok(page_count)
-}
-
-pub async fn process_button<S: Storage>(
+pub async fn process_button<S, UoWFactory>(
     bot: Bot,
     message: CallbackQuery,
-    fsm: Context<S>,
-) -> HandlerResult {
+    fsm: FSMContext<S>,
+    uow_factory: UoWFactory,
+) -> HandlerResult
+where
+    UoWFactory: UoWFactoryTrait,
+    S: Storage,
+{
     let message_data = match message.data {
         Some(message_data) => message_data,
         None => {
@@ -220,4 +193,47 @@ pub async fn process_button<S: Storage>(
     bot.send(edit_message).await?;
 
     Ok(EventReturn::Finish)
+}
+
+fn get_buttons(
+    list: &[String],
+    sticker_sets_number_per_page: usize,
+    buttons: &mut Vec<Vec<InlineKeyboardButton>>,
+) -> Result<u32, DontHaveStolenStickers> {
+    let mut page_count: u32 = 0;
+    let mut current_row_index = 0;
+
+    if list.len() > sticker_sets_number_per_page || list.len() > 0 {
+        list.iter()
+            .enumerate()
+            .filter(|(index, _)| index % sticker_sets_number_per_page == 0)
+            .for_each(|_| {
+                // create a new row every 5 buttons
+                if page_count % 5 == 0 {
+                    page_count += 1;
+                    current_row_index += 1;
+
+                    buttons.push(vec![InlineKeyboardButton::new(format!(
+                        "page {page_count}",
+                    ))
+                    .callback_data(format!("{page_count}",))])
+                // else push button into current row
+                } else {
+                    page_count += 1;
+
+                    buttons[current_row_index - 1].push(
+                        InlineKeyboardButton::new(format!("Page {page_count}",))
+                            .callback_data(format!("{page_count}",)),
+                    );
+                }
+            })
+    // otherwise user does not have sticker sets stolen by this bot
+    } else {
+        return Err(DontHaveStolenStickers::new(
+            "You don't have a single stolen sticker pack. \
+            Steal any sticker pack using the /steal_pack command and it will appear in this list.",
+        ));
+    };
+
+    Ok(page_count)
 }

@@ -6,28 +6,32 @@ use telers::{
     router::Request,
 };
 
-use crate::application::common::traits::uow::UoWFactory;
+use crate::application::common::traits::uow::UoWFactory as UoWFactoryTrait;
 
 #[derive(Debug)]
-pub struct Database<UoWF> {
-    uow_factory: UoWF,
+pub struct Database<UoWFactory> {
+    uow_factory: UoWFactory,
 }
 
-impl<UoWF> Database<UoWF> {
-    pub fn new(uow_factory: UoWF) -> Self {
+impl<UoWFactory> Database<UoWFactory> {
+    pub const fn new(uow_factory: UoWFactory) -> Self {
         Self { uow_factory }
     }
 }
 
 #[async_trait]
-impl<UoWF> OuterMiddleware for Database<UoWF>
+impl<UoWFactory> OuterMiddleware for Database<UoWFactory>
 where
-    UoWF: Send + Sync + UoWFactory + Clone + 'static,
+    UoWFactory: Send + Sync + UoWFactoryTrait + Clone + 'static,
 {
     async fn call(&self, request: Request) -> Result<MiddlewareResponse, EventErrorKind> {
+        println!("{:?}", request.context.get("uow_factory"));
+
         request
             .context
             .insert("uow_factory", Box::new(self.uow_factory.clone()));
+
+        println!("{:?}", request.context.get("uow_factory"));
 
         Ok((request, EventReturn::default()))
     }

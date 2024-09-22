@@ -12,11 +12,10 @@ use telers::{
     Bot, Dispatcher, Router,
 };
 
-use tracing::{debug, error};
-use tracing_subscriber::{fmt, layer::SubscriberExt as _, util::SubscriberInitExt as _, EnvFilter};
-
 use clap::{Parser, Subcommand};
 use toml;
+use tracing::{debug, error};
+use tracing_subscriber::{fmt, layer::SubscriberExt as _, util::SubscriberInitExt as _, EnvFilter};
 
 pub mod application;
 pub mod bot_commands;
@@ -159,14 +158,14 @@ async fn main() {
         .register(FSMContext::new(storage).strategy(Strategy::UserInChat));
 
     router
-        .message
+        .update
         .outer_middlewares
-        .register(ClientApplication::new(client, api_id, api_hash));
+        .register(DatabaseMiddleware::new(UoWFactory::new(pool)));
 
     router
         .message
         .outer_middlewares
-        .register(DatabaseMiddleware::new(UoWFactory::new(pool)));
+        .register(ClientApplication::new(client, api_id, api_hash));
 
     process_non_command(
         &mut router,

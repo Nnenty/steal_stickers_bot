@@ -50,7 +50,7 @@ impl<'b> SetRepo for SetRepoImpl<&'b mut PgConnection> {
             ])
             .build_sqlx(PostgresQueryBuilder);
 
-        debug!("SQL query: {sql_query};\nValues for query: {values:?}");
+        debug!("PostgreSQL query: {sql_query};\nValues for query: {values:?}");
 
         sqlx::query_with(&sql_query, values)
             .execute(&mut *self.conn)
@@ -81,7 +81,7 @@ impl<'b> SetRepo for SetRepoImpl<&'b mut PgConnection> {
             .and_where(Expr::col(Alias::new("short_name")).eq(set.short_name()))
             .build_sqlx(PostgresQueryBuilder);
 
-        debug!("SQL query: {sql_query};\nValues for query: {values:?}");
+        debug!("PostgreSQL query: {sql_query};\nValues for query: {values:?}");
 
         sqlx::query_with(&sql_query, values)
             .execute(&mut *self.conn)
@@ -113,7 +113,7 @@ impl<'b> SetRepo for SetRepoImpl<&'b mut PgConnection> {
             .and_where(Expr::col(Alias::new("tg_id")).eq(set.tg_id()))
             .build_sqlx(PostgresQueryBuilder);
 
-        debug!("SQL query: {sql_query};\nValues for query: {values:?}");
+        debug!("PostgreSQL query: {sql_query};\nValues for query: {values:?}");
 
         sqlx::query_as_with(&sql_query, values)
             .fetch_all(&mut *self.conn)
@@ -142,7 +142,7 @@ impl<'b> SetRepo for SetRepoImpl<&'b mut PgConnection> {
             .and_where(Expr::col(Alias::new("short_name")).eq(set.short_name()))
             .build_sqlx(PostgresQueryBuilder);
 
-        debug!("SQL query: {sql_query};\nValues for query: {values:?}");
+        debug!("PostgreSQL query: {sql_query};\nValues for query: {values:?}");
 
         sqlx::query_as_with(&sql_query, values)
             .fetch_one(&mut *self.conn)

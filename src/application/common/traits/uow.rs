@@ -26,7 +26,7 @@ pub trait UoW {
 }
 
 pub trait UoWFactory {
-    type UoW;
+    type UoW: UoW;
 
     fn create_uow(&self) -> Self::UoW;
 }
