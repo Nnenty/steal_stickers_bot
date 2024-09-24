@@ -1,5 +1,6 @@
 use std::process;
 
+use sqlx::Postgres;
 use telers::{
     client::Reqwest,
     enums::ContentType as ContentTypeEnum,
@@ -134,6 +135,8 @@ async fn main() {
         process::exit(1);
     }
 
+    debug!("Connecting to the database..");
+
     let pool = match sqlx::PgPool::connect(&db_url).await {
         Ok(pool) => pool,
         Err(err) => {
@@ -143,11 +146,12 @@ async fn main() {
         }
     };
 
+    debug!("Connected!");
+
     let bot = Bot::new(config.bot.bot_token);
 
     let mut main_router: Router<Reqwest> = Router::new("main");
 
-    // only private because in channels may be many errors
     let mut router = Router::new("private");
 
     let storage = MemoryStorage::new();
@@ -191,7 +195,7 @@ async fn main() {
 
     steal_sticker_set_command(&mut router, "steal_pack").await;
 
-    my_stickers(&mut router, "my_stickers").await;
+    my_stickers::<Postgres>(&mut router, "my_stickers").await;
 
     process_non_sticker(&mut router, ContentTypeEnum::Sticker).await;
 

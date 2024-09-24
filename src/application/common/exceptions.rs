@@ -47,7 +47,7 @@ where
 #[derive(Debug, thiserror::Error)]
 #[error("Begin transaction error: {message}")]
 pub struct BeginError {
-    message: Cow<'static, str>,
+    pub message: Cow<'static, str>,
 }
 
 impl BeginError {

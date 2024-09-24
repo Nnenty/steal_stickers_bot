@@ -1,6 +1,8 @@
 use random_string::generate;
 use telers::types::Sticker;
 
+use crate::core::stickers::constants::TELEGRAM_STICKER_SET_URL;
+
 /// Return sticker format for each sticker.
 pub fn sticker_format(stickers: &[Sticker]) -> Option<String> {
     stickers.iter().next().map(|sticker| {
@@ -24,7 +26,7 @@ pub fn generate_sticker_set_name_and_link(length: usize, bot_username: &str) -> 
     let set_name = generate(length - 1, charset);
     let set_name = format!("{set_name_prefix}{set_name}_by_{bot_username}");
 
-    let set_link = format!("t.me/addstickers/{}", set_name);
+    let set_link = format!("{TELEGRAM_STICKER_SET_URL}{}", set_name);
 
     (set_name, set_link)
 }

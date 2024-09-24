@@ -83,6 +83,10 @@ where
 {
     type Connection<'a> = &'a mut DB::Connection;
 
+    type UserRepo<'a> = UserRepoImpl<Self::Connection<'a>>;
+
+    type SetRepo<'a> = SetRepoImpl<Self::Connection<'a>>;
+
     async fn connect(&mut self) -> Result<Self::Connection<'_>, BeginError> {
         if self.transaction.is_none() {
             self.begin().await?
@@ -120,11 +124,11 @@ where
         }
     }
 
-    async fn set_repo(&mut self) -> Result<SetRepoImpl<Self::Connection<'_>>, BeginError> {
+    async fn set_repo(&mut self) -> Result<Self::SetRepo<'_>, BeginError> {
         Ok(SetRepoImpl::new(self.connect().await?))
     }
 
-    async fn user_repo(&mut self) -> Result<UserRepoImpl<Self::Connection<'_>>, BeginError> {
+    async fn user_repo(&mut self) -> Result<Self::UserRepo<'_>, BeginError> {
         Ok(UserRepoImpl::new(self.connect().await?))
     }
 }

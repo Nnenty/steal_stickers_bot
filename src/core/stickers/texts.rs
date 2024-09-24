@@ -1,6 +1,11 @@
 use telers::utils::text::{html_code, html_text_link};
 
-use super::{common::get_page_begin_and_end, constants::STICKER_SETS_NUMBER_PER_PAGE};
+use crate::domain::entities::set::Set;
+
+use super::{
+    common::get_page_begin_and_end,
+    constants::{STICKER_SETS_NUMBER_PER_PAGE, TELEGRAM_STICKER_SET_URL},
+};
 
 pub fn sticker_set_message(
     sticker_set_title: &str,
@@ -38,7 +43,7 @@ pub fn start_message(username: &str) -> String {
     )
 }
 
-pub fn current_page_message(current_page: usize, pages_number: u32, list: &Vec<String>) -> String {
+pub fn current_page_message(current_page: usize, pages_number: u32, list: &Vec<Set>) -> String {
     let (begin_page_index, end_page_index) = get_page_begin_and_end(
         current_page,
         pages_number,
@@ -49,7 +54,15 @@ pub fn current_page_message(current_page: usize, pages_number: u32, list: &Vec<S
     let mut sticker_sets_page =
         String::from(format!("List of your stickers ({current_page} page):\n"));
     for i in begin_page_index..end_page_index {
-        sticker_sets_page += list[i].as_str();
+        let sticker_set_name = list[i].short_name.as_str();
+        let sticker_set_title = list[i].title.as_str();
+
+        let sticker_set_link = format!("{TELEGRAM_STICKER_SET_URL}{sticker_set_name}");
+
+        let sticker_set = html_text_link(sticker_set_title, sticker_set_link);
+
+        sticker_sets_page.push_str(&sticker_set);
+
         sticker_sets_page.push(' ');
     }
 
@@ -60,7 +73,11 @@ pub fn current_page_message(current_page: usize, pages_number: u32, list: &Vec<S
 fn current_page_message_test() {
     let mut list = Vec::new();
     for i in 0..78 {
-        list.push(format!("set{i}"));
+        list.push(Set {
+            tg_id: i,
+            short_name: format!("short name{i}"),
+            title: format!("title{i}"),
+        });
     }
 
     let message = current_page_message(2, 2, &list);

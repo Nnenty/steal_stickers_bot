@@ -1,8 +1,12 @@
 use crate::{
+    application::{set::traits::SetRepo, user::traits::UserRepo},
     bot_commands::states::{AddStickerState, MyStickersState, StealStickerSetState},
-    infrastructure::database::uow::UoWFactory,
+    infrastructure::database::{
+        repositories::{set::SetRepoImpl, user::UserRepoImpl},
+        uow::UoWFactory,
+    },
 };
-use sqlx::Postgres;
+use sqlx::Database;
 use telers::{
     client::Reqwest,
     enums::{ChatType as ChatTypeEnum, ContentType as ContentTypeEnum},
@@ -22,6 +26,7 @@ use super::handlers::{
 pub async fn process_non_command(router: &mut Router<Reqwest>, ignore_commands: &'static [&str]) {
     router
         .message
+        .filter(ChatType::one(ChatTypeEnum::Private))
         .register(start::<MemoryStorage>)
         .filter(StateFilter::none())
         .filter(Command::many(ignore_commands.iter().map(ToOwned::to_owned)).invert());
@@ -110,16 +115,22 @@ pub async fn steal_sticker_set_command(router: &mut Router<Reqwest>, command: &'
 }
 
 /// Show all user stolen sticker sets
-pub async fn my_stickers(router: &mut Router<Reqwest>, command: &'static str) {
+pub async fn my_stickers<DB>(router: &mut Router<Reqwest>, command: &'static str)
+where
+    DB: Database,
+    for<'a> UserRepoImpl<&'a mut DB::Connection>: UserRepo,
+    for<'a> SetRepoImpl<&'a mut DB::Connection>: SetRepo,
+{
     router
         .message
-        .register(my_stickers_handler::<MemoryStorage, UoWFactory<Postgres>>)
+        .filter(ChatType::one(ChatTypeEnum::Private))
+        .register(my_stickers_handler::<MemoryStorage, UoWFactory<DB>>)
         .filter(Command::one(command))
         .filter(ContentType::one(ContentTypeEnum::Text));
 
     router
         .callback_query
-        .register(process_button::<MemoryStorage, UoWFactory<Postgres>>)
+        .register(process_button::<MemoryStorage, UoWFactory<DB>>)
         .filter(StateFilter::one(
             MyStickersState::EditStickerSetsListMessage,
         ));
@@ -129,6 +140,7 @@ pub async fn my_stickers(router: &mut Router<Reqwest>, command: &'static str) {
 pub async fn process_non_sticker(router: &mut Router<Reqwest>, content_type: ContentTypeEnum) {
     router
         .message
+        .filter(ChatType::one(ChatTypeEnum::Private))
         .register(process_non_sticker_handler)
         .filter(ContentType::one(content_type).invert())
         .filter(

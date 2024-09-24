@@ -1,6 +1,8 @@
 use std::borrow::Cow;
 
 use telers::{
+    enums::ParseMode,
+    errors::HandlerError,
     event::{telegram::HandlerResult, EventReturn},
     fsm::{Context as FSMContext, Storage},
     methods::{EditMessageText, SendMessage},
@@ -10,15 +12,27 @@ use telers::{
     },
     Bot,
 };
-
 use tracing::error;
 
 use crate::{
-    application::common::traits::uow::{UoW, UoWFactory as UoWFactoryTrait},
+    application::{
+        common::{
+            exceptions::BeginError,
+            traits::uow::{UoW as _, UoWFactory as UoWFactoryTrait},
+        },
+        set::{dto::get_by_tg_id::GetByTgID as GetSetByTgID, traits::SetRepo as _},
+    },
     bot_commands::states::MyStickersState,
     core::stickers::constants::STICKER_SETS_NUMBER_PER_PAGE,
+    domain::entities::set::Set,
     texts::current_page_message,
 };
+
+impl From<BeginError> for HandlerError {
+    fn from(value: BeginError) -> Self {
+        HandlerError::new(value)
+    }
+}
 
 #[derive(Debug, Clone, thiserror::Error)]
 #[error("{message}")]
@@ -46,17 +60,24 @@ where
 {
     fsm.finish().await.map_err(Into::into)?;
 
-    // In the future, a database will be added, and the real response from the database will be used instead of this
-    // variable. So far, during the development of the algorithm itself, I use a stub
-    let mut database_result = Vec::new();
-    for i in 0..515 {
-        database_result.push(format!("set{}", i + 1));
-    }
+    let mut uow = uow_factory.create_uow();
+
+    // only panic if messages uses in channels, but i'm using private filter in main function
+    let user_id = message.from.expect("user not specified").id;
+
+    let sticker_sets = uow
+        .set_repo()
+        .await
+        .map_err(HandlerError::new)?
+        .get_by_tg_id(GetSetByTgID::new(user_id))
+        .await
+        .map_err(HandlerError::new)?;
+
+    uow.commit().await.map_err(HandlerError::new)?;
 
     let mut buttons: Vec<Vec<InlineKeyboardButton>> = Vec::new();
 
-    let page_count = match get_buttons(&database_result, STICKER_SETS_NUMBER_PER_PAGE, &mut buttons)
-    {
+    let page_count = match get_buttons(&sticker_sets, STICKER_SETS_NUMBER_PER_PAGE, &mut buttons) {
         Ok(pages) => pages,
         Err(err) => {
             bot.send(SendMessage::new(message.chat.id(), err.to_string()))
@@ -73,8 +94,9 @@ where
         .send(
             SendMessage::new(
                 message.chat.id(),
-                current_page_message(1, page_count, &database_result),
+                current_page_message(1, page_count, &sticker_sets),
             )
+            .parse_mode(ParseMode::HTML)
             .reply_markup(inline_keyboard),
         )
         .await?;
@@ -103,7 +125,7 @@ where
 
 pub async fn process_button<S, UoWFactory>(
     bot: Bot,
-    message: CallbackQuery,
+    callback_query: CallbackQuery,
     fsm: FSMContext<S>,
     uow_factory: UoWFactory,
 ) -> HandlerResult
@@ -111,7 +133,7 @@ where
     UoWFactory: UoWFactoryTrait,
     S: Storage,
 {
-    let message_data = match message.data {
+    let message_data = match callback_query.data {
         Some(message_data) => message_data,
         None => {
             error!(
@@ -119,7 +141,7 @@ where
             );
 
             bot.send(SendMessage::new(
-                message.chat_id().expect("chat not found"),
+                callback_query.chat_id().expect("chat not found"),
                 "Sorry, an error occurs :( Try again.",
             ))
             .await?;
@@ -151,12 +173,9 @@ where
         }
     };
 
-    // In the future, a database will be added, and the real response from the database will be used instead of this
-    // variable. So far, during the development of the algorithm itself, I use a stub
-    let mut database_result = Vec::new();
-    for i in 0..515 {
-        database_result.push(format!("set{}", i + 1));
-    }
+    let current_page = message_data
+        .parse::<usize>()
+        .expect("fail to convert `message_data` string into usize");
 
     let pages_number: u32 = fsm
         .get_value("pages_number")
@@ -164,11 +183,25 @@ where
         .map_err(Into::into)?
         .expect("Number of pages should be set");
 
-    let current_page = message_data
-        .parse::<usize>()
-        .expect("fail to convert `message_data` string into usize");
+    if pages_number == 1 {
+        return Ok(EventReturn::Finish);
+    }
 
-    let sticker_sets_page = current_page_message(current_page, pages_number, &database_result);
+    let user_id = callback_query.from.id;
+
+    let mut uow = uow_factory.create_uow();
+
+    let sticker_sets = uow
+        .set_repo()
+        .await
+        .map_err(HandlerError::new)?
+        .get_by_tg_id(GetSetByTgID::new(user_id))
+        .await
+        .map_err(HandlerError::new)?;
+
+    uow.commit().await.map_err(HandlerError::new)?;
+
+    let sticker_sets_page = current_page_message(current_page, pages_number, &sticker_sets);
 
     let message_to_edit: Message = fsm
         .get_value("edit_sticker_sets_list_message")
@@ -190,13 +223,13 @@ where
         .message_id(message_to_edit_id)
         .reply_markup(message_to_edit_reply_markup);
 
-    bot.send(edit_message).await?;
+    bot.send(edit_message.parse_mode(ParseMode::HTML)).await?;
 
     Ok(EventReturn::Finish)
 }
 
 fn get_buttons(
-    list: &[String],
+    list: &[Set],
     sticker_sets_number_per_page: usize,
     buttons: &mut Vec<Vec<InlineKeyboardButton>>,
 ) -> Result<u32, DontHaveStolenStickers> {

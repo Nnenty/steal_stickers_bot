@@ -25,13 +25,9 @@ where
     UoWFactory: Send + Sync + UoWFactoryTrait + Clone + 'static,
 {
     async fn call(&self, request: Request) -> Result<MiddlewareResponse, EventErrorKind> {
-        println!("{:?}", request.context.get("uow_factory"));
-
         request
             .context
             .insert("uow_factory", Box::new(self.uow_factory.clone()));
-
-        println!("{:?}", request.context.get("uow_factory"));
 
         Ok((request, EventReturn::default()))
     }
