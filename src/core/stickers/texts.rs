@@ -17,7 +17,7 @@ pub fn sticker_set_message(
     format!(
         "
         Now you have your own sticker pack {new_ss_url}! \
-        You can add stickers to this pack using command /add_stickers! \
+        You can add stickers to this pack using command /addstickers! \
         (original: {steal_ss_url})\n\nIf you want to update your new sticker pack, use official Telegram \
         bot @Stickers, which does an excellent job of managing sticker packs. \
         (the name of your new sticker pack to handle it in @Stickers bot: {sticker_set_name})
@@ -36,9 +36,9 @@ pub fn start_message(username: &str) -> String {
     /help - Show this message\n\
     /source or /src - Show source code of the bot\n\
     /cancel - Cancel last command\n\
-    /steal_pack - Steal sticker pack\n\
-    /add_stickers - Add sticker to a sticker pack stolen by this bot\n\
-    /my_stickers - List of your stolen stickers\n\
+    /stealpack - Steal sticker pack\n\
+    /addstickers - Add sticker to a sticker pack stolen by this bot\n\
+    /mystickers - List of your stolen stickers\n\
         ",
     )
 }

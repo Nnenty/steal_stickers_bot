@@ -34,8 +34,9 @@ pub async fn add_stickers<S: Storage>(
 
     bot.send(SendMessage::new(
             message.chat.id(),
-            format!("Send me {your} sticker pack, in which you want to add stickers \
-            (if you don't have the sticker packs stolen by this bot, first use the command /steal_pack):",
+            format!("Send me {your} sticker pack, in which you want to add stickers. You can see all your \
+            stolen stickers, using command /mystickers
+            (if you don't have the sticker packs stolen by this bot, first use the command /stealpack).",
             your = html_bold("your stolen")),
         ).parse_mode(ParseMode::HTML))
         .await?;
@@ -54,7 +55,7 @@ pub async fn get_stolen_sticker_set<S: Storage>(
         None => {
             bot.send(SendMessage::new(
                 message.chat.id(),
-                "This sticker is without sticker pack! Try to send another sticker pack:",
+                "This sticker is without sticker pack! Try to send another sticker pack.",
             ))
             .await?;
 
@@ -81,7 +82,7 @@ pub async fn get_stolen_sticker_set<S: Storage>(
             message.chat.id(),
             format!(
             "This sticker pack wasnt stolen by this bot, which means i cant add stickers to it according to Telegram rules! \
-            Please, send {your} sticker pack or steal this sticker pack using command /steal_pack:",
+            Please, send {your} sticker pack or steal this sticker pack using command /stealpack.",
             your = html_bold("your stolen")
             )
         ).parse_mode(ParseMode::HTML))
@@ -103,7 +104,7 @@ pub async fn get_stolen_sticker_set<S: Storage>(
 
             bot.send(SendMessage::new(
                 message.chat.id(),
-                "Sorry, an error occurs :( Try send this sticker again:",
+                "Sorry, an error occurs. Try send this sticker again :(",
             ))
             .await?;
 
@@ -114,7 +115,7 @@ pub async fn get_stolen_sticker_set<S: Storage>(
 
             bot.send(SendMessage::new(
                 message.chat.id(),
-                "Sorry, an error occurs :( Try send sticker again:",
+                "Sorry, an error occurs. Try send sticker again :(",
             ))
             .await?;
 
@@ -127,7 +128,7 @@ pub async fn get_stolen_sticker_set<S: Storage>(
 
         bot.send(SendMessage::new(
             message.chat.id(),
-            "Sorry, an error occurs :( Try send this sticker again:",
+            "Sorry, an error occurs. Try send this sticker again :(",
         ))
         .await?;
 
@@ -143,7 +144,7 @@ pub async fn get_stolen_sticker_set<S: Storage>(
                 message.chat.id(),
                 format!(
                     "You are not the owner of this sticker pack! Please, send {your} sticker pack \
-            or steal this sticker pack using command /steal_pack:",
+            or steal this sticker pack using command /stealpack.",
                     your = html_bold("your stolen")
                 ),
             )
@@ -163,7 +164,7 @@ pub async fn get_stolen_sticker_set<S: Storage>(
     let message_delete = if MAX_STICKER_SET_LENGTH - set_length > 0 {
         bot.send(SendMessage::new(
                 message.chat.id(),
-                format!("Total length of this sticker pack = {set_length}.\nThis means you can add a maximum of {} stickers, \
+                format!("Total length of this sticker pack = {set_length}. This means you can add a maximum of {} stickers, \
                 otherwise you will get error because the maximum size of a sticker pack in current time = {MAX_STICKER_SET_LENGTH} stickers.",
                 MAX_STICKER_SET_LENGTH - set_length),
             ))
@@ -173,7 +174,7 @@ pub async fn get_stolen_sticker_set<S: Storage>(
                 message.chat.id(),
                 format!("Sorry, but this sticker pack contains {MAX_STICKER_SET_LENGTH} stickers! :(\n\
                 You cant add more stickers, because the maximum size of a sticker pack in current time = {MAX_STICKER_SET_LENGTH} \
-                stickers.\nTry send another pack(or delete some stickers from this sticker pack):")
+                stickers. Try send another pack(or delete some stickers from this sticker pack).")
             ))
             .await?;
 
@@ -191,7 +192,7 @@ pub async fn get_stolen_sticker_set<S: Storage>(
     bot.send(SendMessage::new(
         message.chat.id(),
         "Now send me stickers you want to add in stolen sticker pack. \
-        When youre ready, use /done command (or /cancel, if you want to cancel the last command):",
+        When youre ready, use /done command (or /cancel, if you want to cancel the last command).",
     ))
     .await?;
 
@@ -290,7 +291,7 @@ pub async fn add_stickers_to_user_owned_sticker_set<S: Storage>(
         None => {
             bot.send(SendMessage::new(
                 message.chat.id(),
-                "You haven't sent a single sticker! Send the stickers, and only then use the /done command:",
+                "You haven't sent a single sticker! Send the stickers, and only then use the /done command.",
             ))
             .await?;
 

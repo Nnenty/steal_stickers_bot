@@ -264,7 +264,7 @@ fn get_buttons(
     } else {
         return Err(DontHaveStolenStickers::new(
             "You don't have a single stolen sticker pack. \
-            Steal any sticker pack using the /steal_pack command and it will appear in this list.",
+            Steal any sticker pack using the /stealpack command and it will appear in this list.",
         ));
     };
 

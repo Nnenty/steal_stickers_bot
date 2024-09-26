@@ -33,7 +33,7 @@ pub async fn steal_sticker_set<S: Storage>(
 
     bot.send(SendMessage::new(
         message.chat.id(),
-        "Send me a sticker and i will steal this sticker pack for you:",
+        "Send me a sticker and i will steal this sticker pack for you!",
     ))
     .await?;
 
@@ -50,7 +50,7 @@ pub async fn steal_sticker_set_name<S: Storage>(
         None => {
             bot.send(SendMessage::new(
                 message.chat.id(),
-                "This sticker is without sticker pack! Try to send another sticker pack:",
+                "This sticker is without sticker pack! Try to send another sticker pack.",
             ))
             .await?;
 
@@ -68,7 +68,7 @@ pub async fn steal_sticker_set_name<S: Storage>(
 
     bot.send(SendMessage::new(
         message.chat.id(),
-        "Now enter name for your new sticker pack (1-64 characters):",
+        "Now enter name for your new sticker pack (1-64 characters).",
     ))
     .await?;
 
@@ -86,7 +86,7 @@ pub async fn create_new_sticker_set<S: Storage>(
     let set_title = if message.text.len() > 64 {
         bot.send(SendMessage::new(
             message.chat.id(),
-            "Too long name for sticker pack!\nTry enter a name up to 64 characters long:",
+            "Too long name for sticker pack! Try enter a name up to 64 characters long.",
         ))
         .await?;
 
@@ -94,7 +94,7 @@ pub async fn create_new_sticker_set<S: Storage>(
     } else if message.text.len() < 1 {
         bot.send(SendMessage::new(
             message.chat.id(),
-            "Too short name!\nTry enter a name between 1 and 64 characters long:",
+            "Too short name! Try enter a name between 1 and 64 characters long.",
         ))
         .await?;
 
@@ -232,7 +232,7 @@ pub async fn create_new_sticker_set<S: Storage>(
                 }))
                 .await
             {
-                error!("error occureded while adding remaining stickers: {}\n", err);
+                error!("error occureded while adding remaining stickers: {}", err);
 
                 bot.send(SendMessage::new(
                     message.chat.id(),

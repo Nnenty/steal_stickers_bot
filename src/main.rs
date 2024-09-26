@@ -41,12 +41,12 @@ async fn set_commands(bot: Bot) -> Result<(), HandlerError> {
     let help = BotCommand::new("help", "Show help message");
     let source = BotCommand::new("source", "Show the source of the bot");
     let src = BotCommand::new("src", "Show the source of the bot");
-    let steal = BotCommand::new("steal_pack", "Steal sticker pack");
+    let steal = BotCommand::new("stealpack", "Steal sticker pack");
     let steal_sticker = BotCommand::new(
-        "add_stickers",
+        "addstickers",
         "Add stickers to a sticker pack stolen by this bot",
     );
-    let my_stickers = BotCommand::new("my_stickers", "List of your stolen stickers");
+    let my_stickers = BotCommand::new("mystickers", "List of your stolen stickers");
     let cancel = BotCommand::new("cancel", "Cancel last command");
 
     let private_chats = [help, source, src, steal, steal_sticker, cancel, my_stickers];
@@ -78,7 +78,7 @@ async fn main() {
         .expect("error occurded while read config file");
     let config: ConfigToml = toml::from_str(&config).unwrap();
 
-    let log_level = match std::env::var("LOGGING_LEVEL") {
+    let log_level = match std::env::var("LOG_LEVEL") {
         Ok(log_level) => log_level,
         Err(_) => config.tracing.log_level,
     };
@@ -101,6 +101,8 @@ async fn main() {
 
     let (api_id, api_hash) = (config.tg_app.api_id, config.tg_app.api_hash);
 
+    debug!("Connecting client..");
+
     let client = match client_connect(api_id, api_hash.clone()).await {
         Ok(client) => client,
         Err(err) => {
@@ -109,6 +111,8 @@ async fn main() {
             process::exit(1);
         }
     };
+
+    debug!("Client connected");
 
     let cli = Cli::parse();
 
@@ -146,12 +150,11 @@ async fn main() {
         }
     };
 
-    debug!("Connected!");
+    debug!("Connected to database");
 
     let bot = Bot::new(config.bot.bot_token);
 
     let mut main_router: Router<Reqwest> = Router::new("main");
-
     let mut router = Router::new("private");
 
     let storage = MemoryStorage::new();
@@ -176,11 +179,11 @@ async fn main() {
         &[
             "source",
             "src",
-            "steal_pack",
-            "add_stickers",
+            "stealpack",
+            "addstickers",
             "help",
             "cancel",
-            "my_stickers",
+            "mystickers",
         ],
     )
     .await;
@@ -191,11 +194,11 @@ async fn main() {
 
     cancel_command(&mut router, &["cancel"]).await;
 
-    add_stickers_command(&mut router, "add_stickers", "done").await;
+    add_stickers_command(&mut router, "addstickers", "done").await;
 
-    steal_sticker_set_command(&mut router, "steal_pack").await;
+    steal_sticker_set_command(&mut router, "stealpack").await;
 
-    my_stickers::<Postgres>(&mut router, "my_stickers").await;
+    my_stickers::<Postgres>(&mut router, "mystickers").await;
 
     process_non_sticker(&mut router, ContentTypeEnum::Sticker).await;
 
