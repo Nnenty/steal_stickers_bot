@@ -60,11 +60,15 @@ pub async fn cancel_command(router: &mut Router<Reqwest>, commands: &'static [&s
 }
 
 /// Executes Telegram command `/add_stickers`
-pub async fn add_stickers_command(
+pub async fn add_stickers_command<DB>(
     router: &mut Router<Reqwest>,
     command: &'static str,
     done_command: &'static str,
-) {
+) where
+    DB: Database,
+    for<'a> UserRepoImpl<&'a mut DB::Connection>: UserRepo,
+    for<'a> SetRepoImpl<&'a mut DB::Connection>: SetRepo,
+{
     router
         .message
         .register(add_stickers::<MemoryStorage>)
@@ -74,7 +78,7 @@ pub async fn add_stickers_command(
 
     router
         .message
-        .register(get_stolen_sticker_set::<MemoryStorage>)
+        .register(get_stolen_sticker_set::<MemoryStorage, UoWFactory<DB>>)
         .filter(ContentType::one(ContentTypeEnum::Sticker))
         .filter(StateFilter::one(AddStickerState::GetStolenStickerSet));
 

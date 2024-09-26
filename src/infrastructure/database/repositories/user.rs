@@ -8,7 +8,7 @@ use crate::{
     application::{
         common::exceptions::RepoKind,
         user::{
-            dto::{create::Create, get_by_tg_id::GetByTgID},
+            dto::{create::Create, get_by_tg_id::GetByTgID, update_sets_number::UpdateSetsNumber},
             exceptions::{UserTgIdAlreadyExists, UserTgIdNotExist},
             traits::UserRepo,
         },
@@ -45,7 +45,7 @@ impl UserRepo for UserRepoImpl<&mut PgConnection> {
             .map_err(|err| {
                 if let Some(err) = err.as_database_error() {
                     if let Some(code) = err.code() {
-                        // if unique tg_id already exists
+                        // if unique `tg_id` already exists
                         if code == "23505" {
                             return RepoKind::exception(UserTgIdAlreadyExists::new(
                                 user.tg_id(),
@@ -54,7 +54,7 @@ impl UserRepo for UserRepoImpl<&mut PgConnection> {
                         }
                     }
                 }
-                // else return unexpected error
+
                 RepoKind::unexpected(err)
             })
     }
@@ -83,6 +83,33 @@ impl UserRepo for UserRepoImpl<&mut PgConnection> {
                         err.to_string(),
                     ));
                 }
+
+                RepoKind::unexpected(err)
+            })
+    }
+
+    async fn update_sets_number(
+        &mut self,
+        user: UpdateSetsNumber,
+    ) -> Result<(), RepoKind<UserTgIdNotExist>> {
+        let (sql_query, values) = Query::update()
+            .table(Alias::new("users"))
+            .values([(Alias::new("sets_number"), user.sets_number().into())])
+            .and_where(Expr::col(Alias::new("tg_id")).eq(user.tg_id()))
+            .build_sqlx(PostgresQueryBuilder);
+
+        sqlx::query_with(&sql_query, values)
+            .execute(&mut *self.conn)
+            .await
+            .map(|_| ())
+            .map_err(|err| {
+                if let sqlx::Error::RowNotFound = err {
+                    return RepoKind::exception(UserTgIdNotExist::new(
+                        user.tg_id(),
+                        err.to_string(),
+                    ));
+                }
+
                 RepoKind::unexpected(err)
             })
     }

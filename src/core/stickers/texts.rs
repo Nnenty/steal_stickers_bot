@@ -2,10 +2,7 @@ use telers::utils::text::{html_code, html_text_link};
 
 use crate::domain::entities::set::Set;
 
-use super::{
-    common::get_page_begin_and_end,
-    constants::{STICKER_SETS_NUMBER_PER_PAGE, TELEGRAM_STICKER_SET_URL},
-};
+use super::{common::get_page_begin_and_end, constants::TELEGRAM_STICKER_SET_URL};
 
 pub fn sticker_set_message(
     sticker_set_title: &str,
@@ -43,13 +40,14 @@ pub fn start_message(username: &str) -> String {
     )
 }
 
-pub fn current_page_message(current_page: usize, pages_number: u32, list: &Vec<Set>) -> String {
-    let (begin_page_index, end_page_index) = get_page_begin_and_end(
-        current_page,
-        pages_number,
-        list.len(),
-        STICKER_SETS_NUMBER_PER_PAGE,
-    );
+pub fn current_page_message(
+    current_page: usize,
+    pages_number: u32,
+    sets_number_per_page: usize,
+    list: &Vec<Set>,
+) -> String {
+    let (begin_page_index, end_page_index) =
+        get_page_begin_and_end(current_page, pages_number, list.len(), sets_number_per_page);
 
     let mut sticker_sets_page =
         String::from(format!("List of your stickers ({current_page} page):\n"));
@@ -72,21 +70,20 @@ pub fn current_page_message(current_page: usize, pages_number: u32, list: &Vec<S
 #[test]
 fn current_page_message_test() {
     let mut list = Vec::new();
-    for i in 0..78 {
+    for i in 0..5 {
         list.push(Set {
             tg_id: i,
-            short_name: format!("short name{i}"),
+            short_name: format!("short_name{i}"),
             title: format!("title{i}"),
         });
     }
 
-    let message = current_page_message(2, 2, &list);
+    let message = current_page_message(1, 1, 50, &list);
 
     assert_eq!(
         message.as_str(),
-        "List of your stickers (2 page):\n\
-    set50 set51 set52 set53 set54 set55 set56 set57 set58 set59 set60 set61 set62 set63 set64 \
-    set65 set66 set67 set68 set69 set70 set71 set72 set73 set74 set75 set76 set77 \
-    "
+        "List of your stickers (1 page):\n<a href=\"t.me/addstickers/short_name0\">title0</a> \
+        <a href=\"t.me/addstickers/short_name1\">title1</a> <a href=\"t.me/addstickers/short_name2\">title2</a> \
+        <a href=\"t.me/addstickers/short_name3\">title3</a> <a href=\"t.me/addstickers/short_name4\">title4</a> "
     );
 }

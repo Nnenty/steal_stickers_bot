@@ -2,6 +2,7 @@ use std::time::Duration;
 
 use telers::{
     enums::ParseMode,
+    errors::HandlerError,
     event::{telegram::HandlerResult, EventReturn},
     fsm::{Context, Storage},
     methods::{AddStickerToSet, DeleteMessage, GetMe, GetStickerSet, SendMessage},
@@ -13,12 +14,29 @@ use telers::{
 use tracing::{debug, error};
 
 use crate::{
-    bot_commands::states::AddStickerState, core::stickers::constants::MAX_STICKER_SET_LENGTH,
-    telegram_application::get_sticker_set_user_id,
-};
-use crate::{
-    common::sticker_format, middlewares::client_application::Client,
-    telegram_application::get_owned_stolen_sticker_sets,
+    application::{
+        common::{
+            exceptions::{ApplicationException, BeginError, RepoKind, TransactionKind},
+            traits::uow::{UoW as UoWTrait, UoWFactory as UoWFactoryTrait},
+        },
+        set::{
+            dto::{create::Create as CreateSet, get_by_short_name::GetByShortName},
+            traits::SetRepo,
+        },
+        user::{
+            dto::{
+                create::Create as CreateUser, get_by_tg_id::GetByTgID as GetUserByTgID,
+                update_sets_number::UpdateSetsNumber,
+            },
+            traits::UserRepo,
+        },
+    },
+    bot_commands::states::AddStickerState,
+    common::sticker_format,
+    core::stickers::constants::MAX_STICKER_SET_LENGTH,
+    domain::entities::set::Set,
+    middlewares::client_application::Client,
+    telegram_application::{get_owned_stolen_sticker_sets, get_sticker_set_user_id},
 };
 
 pub async fn add_stickers<S: Storage>(
@@ -35,8 +53,7 @@ pub async fn add_stickers<S: Storage>(
     bot.send(SendMessage::new(
             message.chat.id(),
             format!("Send me {your} sticker pack, in which you want to add stickers. You can see all your \
-            stolen stickers, using command /mystickers
-            (if you don't have the sticker packs stolen by this bot, first use the command /stealpack).",
+            stolen stickers, using command /mystickers (if you don't have the sticker packs stolen by this bot, first use the command /stealpack).",
             your = html_bold("your stolen")),
         ).parse_mode(ParseMode::HTML))
         .await?;
@@ -44,12 +61,17 @@ pub async fn add_stickers<S: Storage>(
     Ok(EventReturn::Finish)
 }
 
-pub async fn get_stolen_sticker_set<S: Storage>(
+pub async fn get_stolen_sticker_set<S, UoWFactory>(
     bot: Bot,
     message: MessageSticker,
-    Client(client): Client,
     fsm: Context<S>,
-) -> HandlerResult {
+    Client(client): Client,
+    uow_factory: UoWFactory,
+) -> HandlerResult
+where
+    UoWFactory: UoWFactoryTrait,
+    S: Storage,
+{
     let sticker_set_name = match message.sticker.set_name {
         Some(sticker_set_name) => sticker_set_name,
         None => {
@@ -66,6 +88,8 @@ pub async fn get_stolen_sticker_set<S: Storage>(
     let sticker_set = bot
         .send(GetStickerSet::new(sticker_set_name.as_ref()))
         .await?;
+
+    let sticker_set_title = sticker_set.title;
 
     // cant panic
     let bot_username = bot
@@ -94,7 +118,7 @@ pub async fn get_stolen_sticker_set<S: Storage>(
     // if function doesnt execute in 3 second, send error message
     let user_id = match tokio::time::timeout(
         Duration::from_secs(3),
-        get_sticker_set_user_id(&sticker_set_name, &client),
+        get_sticker_set_user_id(sticker_set_name.as_ref(), &client),
     )
     .await
     {
@@ -123,17 +147,35 @@ pub async fn get_stolen_sticker_set<S: Storage>(
         }
     };
 
-    if let Err(err) = get_owned_stolen_sticker_sets(&client, user_id, &bot_username).await {
-        error!(%err, "failed to get user owned stolen sticker sets:");
+    let mut uow = uow_factory.create_uow();
 
-        bot.send(SendMessage::new(
-            message.chat.id(),
-            "Sorry, an error occurs. Try send this sticker again :(",
-        ))
-        .await?;
+    create_sticker_set_if_not_exists(
+        &mut uow,
+        sticker_set_name.as_ref(),
+        sticker_set_title.as_ref(),
+        user_id,
+    )
+    .await
+    .map_err(HandlerError::new)?;
 
-        return Ok(EventReturn::Finish);
-    }
+    let db_result = uow
+        .user_repo()
+        .await
+        .map_err(HandlerError::new)?
+        .get_by_tg_id(GetUserByTgID::new(user_id))
+        .await;
+
+    // if let Err(err) = get_owned_stolen_sticker_sets(&client, user_id, &bot_username).await {
+    //     error!(%err, "failed to get user owned stolen sticker sets:");
+
+    //     bot.send(SendMessage::new(
+    //         message.chat.id(),
+    //         "Sorry, an error occurs. Try send this sticker again :(",
+    //     ))
+    //     .await?;
+
+    //     return Ok(EventReturn::Finish);
+    // }
 
     // only panic if messages uses in channels, but i'm using private filter in main function
     let sender_user_id = message.from.expect("user not specified").id;
@@ -369,3 +411,42 @@ pub async fn add_stickers_to_user_owned_sticker_set<S: Storage>(
 
     Ok(EventReturn::Finish)
 }
+
+pub async fn create_sticker_set_if_not_exists<UoW>(
+    uow: &mut UoW,
+    set_name: &str,
+    title: &str,
+    tg_id: i64,
+) -> Result<(), TransactionKind>
+where
+    UoW: UoWTrait,
+{
+    let result = uow
+        .set_repo()
+        .await
+        .map_err(TransactionKind::begin_err)?
+        .create(CreateSet::new(tg_id, set_name, title))
+        .await;
+
+    match result {
+        Ok(()) => {}
+        Err(RepoKind::Unexpected(err)) => {
+            error!(?err, "Repository error:");
+
+            uow.rollback()
+                .await
+                .map_err(TransactionKind::rollback_err)?;
+        }
+        Err(RepoKind::Exception(err)) => {
+            error!(?err, "Sticker set already exists:");
+
+            return Ok(());
+        }
+    };
+
+    uow.commit().await.map_err(TransactionKind::commit_err)?;
+
+    Ok(())
+}
+
+pub async fn create_user_if_not_exist<UoW>(uow: &mut UoW, tg_id: i64) {}

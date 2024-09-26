@@ -8,7 +8,7 @@
 [bot]
 bot_token = ""
 
-[application]
+[tg_app]
 # should be integer number
 api_id = 
 api_hash = ""

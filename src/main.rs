@@ -194,7 +194,7 @@ async fn main() {
 
     cancel_command(&mut router, &["cancel"]).await;
 
-    add_stickers_command(&mut router, "addstickers", "done").await;
+    add_stickers_command::<Postgres>(&mut router, "addstickers", "done").await;
 
     steal_sticker_set_command(&mut router, "stealpack").await;
 

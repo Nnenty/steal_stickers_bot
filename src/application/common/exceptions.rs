@@ -9,7 +9,6 @@ pub struct RepoError {
     message: Cow<'static, str>,
 }
 
-impl ApplicationException for RepoError {}
 impl UnexpectedError for RepoError {}
 
 impl RepoError {
@@ -27,6 +26,7 @@ where
 {
     #[error(transparent)]
     Exception(RepoException),
+
     #[error(transparent)]
     Unexpected(RepoError),
 }
@@ -47,7 +47,7 @@ where
 #[derive(Debug, thiserror::Error)]
 #[error("Begin transaction error: {message}")]
 pub struct BeginError {
-    pub message: Cow<'static, str>,
+    message: Cow<'static, str>,
 }
 
 impl BeginError {
@@ -59,7 +59,6 @@ impl BeginError {
 }
 
 impl ApplicationException for BeginError {}
-impl UnexpectedError for BeginError {}
 
 #[derive(Debug, thiserror::Error)]
 #[error("Commit transaction error: {message}")]
@@ -76,7 +75,6 @@ impl CommitError {
 }
 
 impl ApplicationException for CommitError {}
-impl UnexpectedError for CommitError {}
 
 #[derive(Debug, thiserror::Error)]
 #[error("Rollback transaction error: {message}")]
@@ -93,4 +91,31 @@ impl RollbackError {
 }
 
 impl ApplicationException for RollbackError {}
-impl UnexpectedError for RollbackError {}
+
+#[derive(Debug, thiserror::Error)]
+pub enum TransactionKind {
+    #[error(transparent)]
+    BeginError(BeginError),
+
+    #[error(transparent)]
+    CommitError(CommitError),
+
+    #[error(transparent)]
+    RollbackError(RollbackError),
+}
+
+impl TransactionKind {
+    pub fn begin_err(err: impl Into<BeginError>) -> Self {
+        Self::BeginError(err.into())
+    }
+
+    pub fn commit_err(err: impl Into<CommitError>) -> Self {
+        Self::CommitError(err.into())
+    }
+
+    pub fn rollback_err(err: impl Into<RollbackError>) -> Self {
+        Self::RollbackError(err.into())
+    }
+}
+
+impl ApplicationException for TransactionKind {}

@@ -31,11 +31,11 @@ impl<Conn> SetRepoImpl<Conn> {
 }
 
 #[async_trait]
-impl<'b> SetRepo for SetRepoImpl<&'b mut PgConnection> {
+impl SetRepo for SetRepoImpl<&mut PgConnection> {
     async fn create<'a>(
         &'a mut self,
         set: Create<'a>,
-    ) -> Result<(), RepoKind<SetShortNameAlreadyExist<'a>>> {
+    ) -> Result<(), RepoKind<SetShortNameAlreadyExist>> {
         let (sql_query, values) = Query::insert()
             .into_table(Alias::new("sets"))
             .columns([
@@ -61,7 +61,7 @@ impl<'b> SetRepo for SetRepoImpl<&'b mut PgConnection> {
                     if let Some(code) = err.code() {
                         if code == "23505" {
                             return RepoKind::exception(SetShortNameAlreadyExist::new(
-                                set.short_name(),
+                                set.short_name().to_string(),
                                 err.to_string(),
                             ));
                         }
@@ -75,7 +75,7 @@ impl<'b> SetRepo for SetRepoImpl<&'b mut PgConnection> {
     async fn delete_by_short_name<'a>(
         &'a mut self,
         set: DeleteByShortName<'a>,
-    ) -> Result<(), RepoKind<SetShortNameNotExist<'a>>> {
+    ) -> Result<(), RepoKind<SetShortNameNotExist>> {
         let (sql_query, values) = Query::delete()
             .from_table(Alias::new("sets"))
             .and_where(Expr::col(Alias::new("short_name")).eq(set.short_name()))
@@ -90,7 +90,7 @@ impl<'b> SetRepo for SetRepoImpl<&'b mut PgConnection> {
             .map_err(|err| {
                 if let sqlx::Error::RowNotFound = err {
                     return RepoKind::exception(SetShortNameNotExist::new(
-                        set.short_name(),
+                        set.short_name().to_string(),
                         err.to_string(),
                     ));
                 }
@@ -131,7 +131,7 @@ impl<'b> SetRepo for SetRepoImpl<&'b mut PgConnection> {
     async fn get_one_by_short_name<'a>(
         &'a mut self,
         set: GetByShortName<'a>,
-    ) -> Result<Set, RepoKind<SetShortNameNotExist<'a>>> {
+    ) -> Result<Set, RepoKind<SetShortNameNotExist>> {
         let (sql_query, values) = Query::select()
             .columns([
                 Alias::new("tg_id"),
@@ -151,7 +151,7 @@ impl<'b> SetRepo for SetRepoImpl<&'b mut PgConnection> {
             .map_err(|err| {
                 if let sqlx::Error::RowNotFound = err {
                     return RepoKind::exception(SetShortNameNotExist::new(
-                        set.short_name(),
+                        set.short_name().to_string(),
                         err.to_string(),
                     ));
                 }

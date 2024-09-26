@@ -94,7 +94,7 @@ where
         .send(
             SendMessage::new(
                 message.chat.id(),
-                current_page_message(1, page_count, &sticker_sets),
+                current_page_message(1, page_count, STICKER_SETS_NUMBER_PER_PAGE, &sticker_sets),
             )
             .parse_mode(ParseMode::HTML)
             .reply_markup(inline_keyboard),
@@ -201,7 +201,12 @@ where
 
     uow.commit().await.map_err(HandlerError::new)?;
 
-    let sticker_sets_page = current_page_message(current_page, pages_number, &sticker_sets);
+    let sticker_sets_page = current_page_message(
+        current_page,
+        pages_number,
+        STICKER_SETS_NUMBER_PER_PAGE,
+        &sticker_sets,
+    );
 
     let message_to_edit: Message = fsm
         .get_value("edit_sticker_sets_list_message")

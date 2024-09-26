@@ -4,13 +4,13 @@ use crate::application::common::exceptions::ApplicationException;
 
 #[derive(Debug, thiserror::Error)]
 #[error("sticker set with short name `{short_name}` already exists: {message}")]
-pub struct SetShortNameAlreadyExist<'a> {
-    short_name: &'a str,
+pub struct SetShortNameAlreadyExist {
+    short_name: String,
     message: Cow<'static, str>,
 }
 
-impl<'a> SetShortNameAlreadyExist<'a> {
-    pub fn new(short_name: &'a str, message: impl Into<Cow<'static, str>>) -> Self {
+impl SetShortNameAlreadyExist {
+    pub fn new(short_name: String, message: impl Into<Cow<'static, str>>) -> Self {
         Self {
             short_name,
             message: message.into(),
@@ -18,17 +18,17 @@ impl<'a> SetShortNameAlreadyExist<'a> {
     }
 }
 
-impl<'a> ApplicationException for SetShortNameAlreadyExist<'a> {}
+impl ApplicationException for SetShortNameAlreadyExist {}
 
 #[derive(Debug, thiserror::Error)]
 #[error("sticker set with short name `{short_name}` not exists: {message}")]
-pub struct SetShortNameNotExist<'a> {
-    short_name: &'a str,
+pub struct SetShortNameNotExist {
+    short_name: String,
     message: Cow<'static, str>,
 }
 
-impl<'a> SetShortNameNotExist<'a> {
-    pub fn new(short_name: &'a str, message: impl Into<Cow<'static, str>>) -> Self {
+impl SetShortNameNotExist {
+    pub fn new(short_name: String, message: impl Into<Cow<'static, str>>) -> Self {
         Self {
             short_name,
             message: message.into(),
@@ -36,7 +36,7 @@ impl<'a> SetShortNameNotExist<'a> {
     }
 }
 
-impl<'a> ApplicationException for SetShortNameNotExist<'a> {}
+impl ApplicationException for SetShortNameNotExist {}
 
 #[derive(Debug, thiserror::Error)]
 #[error("sticker sets with Telegram ID `{tg_id}` not exists: {message}")]
