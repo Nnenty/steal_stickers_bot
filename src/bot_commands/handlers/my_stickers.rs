@@ -62,6 +62,18 @@ where
 
     let mut uow = uow_factory.create_uow();
 
+    // if let Err(err) = get_owned_stolen_sticker_sets(&client, user_id, &bot_username).await {
+    //     error!(%err, "failed to get user owned stolen sticker sets:");
+
+    //     bot.send(SendMessage::new(
+    //         message.chat.id(),
+    //         "Sorry, an error occurs. Try send this sticker again :(",
+    //     ))
+    //     .await?;
+
+    //     return Ok(EventReturn::Finish);
+    // }
+
     // only panic if messages uses in channels, but i'm using private filter in main function
     let user_id = message.from.expect("user not specified").id;
 

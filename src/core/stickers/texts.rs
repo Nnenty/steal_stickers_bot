@@ -61,7 +61,7 @@ pub fn current_page_message(
 
         sticker_sets_page.push_str(&sticker_set);
 
-        sticker_sets_page.push(' ');
+        sticker_sets_page.push_str(" | ");
     }
 
     sticker_sets_page
@@ -82,8 +82,12 @@ fn current_page_message_test() {
 
     assert_eq!(
         message.as_str(),
-        "List of your stickers (1 page):\n<a href=\"t.me/addstickers/short_name0\">title0</a> \
-        <a href=\"t.me/addstickers/short_name1\">title1</a> <a href=\"t.me/addstickers/short_name2\">title2</a> \
-        <a href=\"t.me/addstickers/short_name3\">title3</a> <a href=\"t.me/addstickers/short_name4\">title4</a> "
+        "List of your stickers (1 page):\n\
+        <a href=\"t.me/addstickers/short_name0\">title0</a> \
+        | <a href=\"t.me/addstickers/short_name1\">title1</a> \
+        | <a href=\"t.me/addstickers/short_name2\">title2</a> \
+        | <a href=\"t.me/addstickers/short_name3\">title3</a> \
+        | <a href=\"t.me/addstickers/short_name4\">title4</a> \
+        | "
     );
 }

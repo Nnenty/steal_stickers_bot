@@ -15,20 +15,13 @@ use tracing::error;
 
 use crate::{
     application::{
-        common::{
-            exceptions::{RepoKind, TransactionKind},
-            traits::uow::{UoW as UoWTrait, UoWFactory as UoWFactoryTrait},
-        },
-        set::{dto::create::Create as CreateSet, traits::SetRepo},
-        user::{
-            dto::{create::Create as CreateUser, get_by_tg_id::GetByTgID as GetUserByTgID},
-            traits::UserRepo,
-        },
+        commands::create_set::create_set, common::traits::uow::UoWFactory as UoWFactoryTrait,
+        set::dto::create::Create as CreateSet,
     },
     bot_commands::{handlers::add_stickers, states::AddStickerState},
     core::stickers::constants::MAX_STICKER_SET_LENGTH,
     middlewares::client_application::Client,
-    telegram_application::{get_owned_stolen_sticker_sets, get_sticker_set_user_id},
+    telegram_application::get_sticker_set_user_id,
 };
 
 pub async fn add_stickers_handler<S: Storage>(
@@ -108,7 +101,7 @@ where
     }
 
     // if function doesnt execute in 3 second, send error message
-    let user_id = match tokio::time::timeout(
+    let steal_set_user_id = match tokio::time::timeout(
         Duration::from_secs(3),
         get_sticker_set_user_id(sticker_set_name.as_ref(), &client),
     )
@@ -147,35 +140,21 @@ where
 
     let mut uow = uow_factory.create_uow();
 
-    create_sticker_set_or_ignore(
+    create_set(
         &mut uow,
-        sticker_set_name.as_ref(),
-        sticker_set_title.as_ref(),
-        user_id,
+        CreateSet::new(
+            steal_set_user_id,
+            sticker_set_name.as_ref(),
+            sticker_set_title.as_ref(),
+        ),
     )
     .await
     .map_err(HandlerError::new)?;
 
-    create_user_or_ignore(&mut uow, user_id)
-        .await
-        .map_err(HandlerError::new)?;
-
-    // if let Err(err) = get_owned_stolen_sticker_sets(&client, user_id, &bot_username).await {
-    //     error!(%err, "failed to get user owned stolen sticker sets:");
-
-    //     bot.send(SendMessage::new(
-    //         message.chat.id(),
-    //         "Sorry, an error occurs. Try send this sticker again :(",
-    //     ))
-    //     .await?;
-
-    //     return Ok(EventReturn::Finish);
-    // }
-
     // only panic if messages uses in channels, but i'm using private filter in main function
-    let sender_user_id = message.from.expect("user not specified").id;
+    let user_id = message.from.expect("user not specified").id;
 
-    if sender_user_id != user_id {
+    if user_id != steal_set_user_id {
         bot.send(
             SendMessage::new(
                 message.chat.id(),
@@ -412,65 +391,4 @@ pub async fn add_stickers_to_user_owned_sticker_set<S: Storage>(
     .await?;
 
     Ok(EventReturn::Finish)
-}
-
-pub async fn create_sticker_set_or_ignore<UoW>(
-    uow: &mut UoW,
-    set_name: &str,
-    title: &str,
-    tg_id: i64,
-) -> Result<(), TransactionKind>
-where
-    UoW: UoWTrait,
-{
-    let result = uow
-        .set_repo()
-        .await
-        .map_err(TransactionKind::begin_err)?
-        .create(CreateSet::new(tg_id, set_name, title))
-        .await;
-
-    match result {
-        Ok(_) => (),
-        Err(RepoKind::Unexpected(_)) => {
-            uow.rollback()
-                .await
-                .map_err(TransactionKind::rollback_err)?;
-        }
-        Err(RepoKind::Exception(_)) => {
-            return Ok(());
-        }
-    };
-
-    uow.commit().await.map_err(TransactionKind::commit_err)?;
-
-    Ok(())
-}
-
-pub async fn create_user_or_ignore<UoW>(uow: &mut UoW, tg_id: i64) -> Result<(), TransactionKind>
-where
-    UoW: UoWTrait,
-{
-    let result = uow
-        .user_repo()
-        .await
-        .map_err(TransactionKind::begin_err)?
-        .create(CreateUser::new(tg_id))
-        .await;
-
-    match result {
-        Ok(_) => (),
-        Err(RepoKind::Unexpected(_)) => {
-            uow.rollback()
-                .await
-                .map_err(TransactionKind::rollback_err)?;
-        }
-        Err(RepoKind::Exception(_)) => {
-            return Ok(());
-        }
-    }
-
-    uow.commit().await.map_err(TransactionKind::commit_err)?;
-
-    Ok(())
 }
