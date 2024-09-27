@@ -8,7 +8,11 @@ use telers::{
     Bot,
 };
 
-pub async fn source<S: Storage>(bot: Bot, message: MessageText, fsm: Context<S>) -> HandlerResult {
+pub async fn source_handler<S: Storage>(
+    bot: Bot,
+    message: MessageText,
+    fsm: Context<S>,
+) -> HandlerResult {
     fsm.finish().await.map_err(Into::into)?;
 
     bot.send(

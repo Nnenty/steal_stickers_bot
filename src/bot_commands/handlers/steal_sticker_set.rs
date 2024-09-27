@@ -1,26 +1,27 @@
-use std::time::Duration;
-
 use telers::{
     enums::ParseMode,
     errors::session::ErrorKind,
     event::{telegram::HandlerResult, EventReturn},
     fsm::{Context, Storage},
-    methods::{
-        AddStickerToSet, CreateNewStickerSet, DeleteMessage, GetMe, GetStickerSet, SendMessage,
-    },
+    methods::{CreateNewStickerSet, DeleteMessage, GetMe, GetStickerSet, SendMessage},
     types::{InputFile, InputSticker, MessageSticker, MessageText},
     utils::text::{html_bold, html_code},
     Bot,
 };
-use tracing::{debug, error};
+use tracing::error;
 
-use crate::bot_commands::states::StealStickerSetState;
+use crate::{
+    bot_commands::states::StealStickerSetState,
+    core::stickers::constants::CREATE_SET_IN_ONE_GO_LENGTH_LIMIT,
+};
 use crate::{
     common::{generate_sticker_set_name_and_link, sticker_format},
     texts::sticker_set_message,
 };
 
-pub async fn steal_sticker_set<S: Storage>(
+use super::common::add_stickers;
+
+pub async fn steal_sticker_set_handler<S: Storage>(
     bot: Bot,
     message: MessageText,
     fsm: Context<S>,
@@ -136,22 +137,17 @@ pub async fn create_new_sticker_set<S: Storage>(
     let message_delete = bot.send(SendMessage::new(
         message.chat.id(),
         format!(
-            "Stealing sticker pack with name `{}` for you..\n(stealing sticker packs \
-            containing more than 50 stickers can take up to a several minutes due to some internal limitations)",
-            set_title
+            "Stealing sticker pack with name `{set_title}` for you..\n(stealing sticker packs \
+            containing more than {CREATE_SET_IN_ONE_GO_LENGTH_LIMIT} stickers can take up to a several minutes due to some internal limitations)",
         ),
     ))
     .await?;
 
-    let (steal_stickers_from_sticker_set, sticker_set_length, more_than_50) =
-        if steal_stickers_from_sticker_set.len() > 50 {
-            (Box::new(&steal_stickers_from_sticker_set[..]), 50, true)
+    let (limit_sticker_set_length, more_than_limit) =
+        if steal_stickers_from_sticker_set.len() > CREATE_SET_IN_ONE_GO_LENGTH_LIMIT {
+            (CREATE_SET_IN_ONE_GO_LENGTH_LIMIT, true)
         } else {
-            (
-                Box::new(&steal_stickers_from_sticker_set[..]),
-                steal_stickers_from_sticker_set.len(),
-                false,
-            )
+            (steal_stickers_from_sticker_set.len(), false)
         };
 
     while let Err(err) = bot
@@ -159,7 +155,7 @@ pub async fn create_new_sticker_set<S: Storage>(
             user_id,
             &set_name,
             set_title.as_ref(),
-            steal_stickers_from_sticker_set[..sticker_set_length]
+            steal_stickers_from_sticker_set[..limit_sticker_set_length]
                 .into_iter()
                 .map(|sticker| {
                     let sticker_is: InputSticker = InputSticker::new(
@@ -181,15 +177,15 @@ pub async fn create_new_sticker_set<S: Storage>(
                     == r#"TelegramBadRequest: "Bad Request: sticker set name is already occupied""#
                 {
                     error!(
-                        "file to create new sticker set: {}; try generate sticker set name again..",
-                        err
+                        ?err,
+                        "file to create new sticker set; try generate sticker set name again:"
                     );
-                    debug!("sticker set name: {}", set_name);
+                    error!(set_name, "sticker set name:");
 
                     (set_name, set_link) = generate_sticker_set_name_and_link(11, &bot_username);
                 } else {
-                    error!("file to create new sticker set: {}", err);
-                    debug!("sticker set name: {}", set_name);
+                    error!(?err, "file to create new sticker set:");
+                    error!(set_name, "sticker set name:");
 
                     bot.send(SendMessage::new(
                         message.chat.id(),
@@ -214,59 +210,50 @@ pub async fn create_new_sticker_set<S: Storage>(
         }
     }
 
-    tokio::time::sleep(Duration::from_millis(2111)).await;
+    if more_than_limit {
+        let all_stickers_was_added = add_stickers(
+            &bot,
+            user_id,
+            set_name.as_ref(),
+            steal_stickers_from_sticker_set[limit_sticker_set_length..].as_ref(),
+        )
+        .await
+        .expect("empty stickers list");
 
-    if more_than_50 {
-        for sticker in &steal_stickers_from_sticker_set[50..] {
-            if let Err(err) = bot
-                .send(AddStickerToSet::new(user_id, &set_name, {
-                    let sticker_is = InputSticker::new(
-                        InputFile::id(sticker.file_id.as_ref()),
-                        &sticker_format(&steal_stickers_from_sticker_set)
-                            // i explicitly ask the user to send me a sticker, so that the
-                            // sticker set will contain at least 1 sticker
-                            .expect("empty sticker set"),
-                    );
+        if !all_stickers_was_added {
+            bot.send(SendMessage::new(
+                message.chat.id(),
+                format!(
+                    "Error occurded while creating new sticker pack, {but_created}! \
+                    Due to an error, not all stickers have been stolen :(\n\
+                    (you can delete this sticker pack using the /delpack command in official Telegram bot @Stickers. \
+                    Name of this sticker pack: {copy_set_name})",
+                    but_created = html_bold("but sticker pack was created"),
+                    copy_set_name = html_code(&set_name)
+                ),
+            ).parse_mode(ParseMode::HTML))
+            .await?;
 
-                    sticker_is.emoji_list(sticker.clone().emoji)
-                }))
-                .await
-            {
-                error!("error occureded while adding remaining stickers: {}", err);
-
-                bot.send(SendMessage::new(
-                    message.chat.id(),
-                    format!(
-                        "Error occurded while creating new sticker pack, {but_created}! \
-                        Due to an error, not all stickers may have been stolen :(\n\
-                        (you can delete this sticker pack using the /delpack command in official Telegram bot @Stickers. \
-                        Name of this sticker pack: {set_name_code})",
-                        but_created = html_bold("but sticker pack was created"),
-                        set_name_code = html_code(&set_name)
-                    ),
-                ).parse_mode(ParseMode::HTML))
-                .await?;
-
-                return Ok(EventReturn::Finish);
-            }
-
-            // sleep because you can’t send telegram api requests more often than per second
-            tokio::time::sleep(Duration::from_millis(1010)).await;
+            return Ok(EventReturn::Finish);
         }
-    };
+    }
 
     let steal_sticker_set_link = format!("t.me/addstickers/{}", steal_sticker_set_name);
 
-    let send_sticker_set = sticker_set_message(
-        &set_title,
-        &set_name,
-        &set_link,
-        &steal_sticker_set_title,
-        &steal_sticker_set_link,
-    );
-
-    bot.send(SendMessage::new(message.chat.id(), send_sticker_set).parse_mode(ParseMode::HTML))
-        .await?;
+    bot.send(
+        SendMessage::new(
+            message.chat.id(),
+            sticker_set_message(
+                &set_title,
+                &set_name,
+                &set_link,
+                &steal_sticker_set_title,
+                &steal_sticker_set_link,
+            ),
+        )
+        .parse_mode(ParseMode::HTML),
+    )
+    .await?;
 
     // delete unnecessary message
     bot.send(DeleteMessage::new(

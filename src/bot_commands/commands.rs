@@ -16,10 +16,10 @@ use telers::{
 };
 
 use super::handlers::{
-    add_stickers, add_stickers_to_user_owned_sticker_set, cancel, create_new_sticker_set,
-    get_stickers_to_add, get_stolen_sticker_set, my_stickers as my_stickers_handler,
-    process_button, process_non_sticker as process_non_sticker_handler, source, start,
-    steal_sticker_set, steal_sticker_set_name,
+    add_stickers_handler, add_stickers_to_user_owned_sticker_set, cancel_handler,
+    create_new_sticker_set, get_stickers_to_add, get_stolen_sticker_set, my_stickers_handler,
+    process_button, process_non_sticker as process_non_sticker_handler, source_handler,
+    start_handler, steal_sticker_set_handler, steal_sticker_set_name,
 };
 
 /// If the user simply writes to the bot without calling any commands, the bot will call specified function
@@ -27,7 +27,7 @@ pub async fn process_non_command(router: &mut Router<Reqwest>, ignore_commands: 
     router
         .message
         .filter(ChatType::one(ChatTypeEnum::Private))
-        .register(start::<MemoryStorage>)
+        .register(start_handler::<MemoryStorage>)
         .filter(StateFilter::none())
         .filter(Command::many(ignore_commands.iter().map(ToOwned::to_owned)).invert());
 }
@@ -36,7 +36,7 @@ pub async fn process_non_command(router: &mut Router<Reqwest>, ignore_commands: 
 pub async fn start_command(router: &mut Router<Reqwest>, commands: &'static [&str]) {
     router
         .message
-        .register(start::<MemoryStorage>)
+        .register(start_handler::<MemoryStorage>)
         .filter(ChatType::one(ChatTypeEnum::Private))
         .filter(Command::many(commands.iter().map(ToOwned::to_owned)));
 }
@@ -45,7 +45,7 @@ pub async fn start_command(router: &mut Router<Reqwest>, commands: &'static [&st
 pub async fn source_command(router: &mut Router<Reqwest>, commands: &'static [&str]) {
     router
         .message
-        .register(source::<MemoryStorage>)
+        .register(source_handler::<MemoryStorage>)
         .filter(ChatType::one(ChatTypeEnum::Private))
         .filter(Command::many(commands.iter().map(ToOwned::to_owned)));
 }
@@ -54,7 +54,7 @@ pub async fn source_command(router: &mut Router<Reqwest>, commands: &'static [&s
 pub async fn cancel_command(router: &mut Router<Reqwest>, commands: &'static [&str]) {
     router
         .message
-        .register(cancel::<MemoryStorage>)
+        .register(cancel_handler::<MemoryStorage>)
         .filter(ChatType::one(ChatTypeEnum::Private))
         .filter(Command::many(commands.iter().map(ToOwned::to_owned)));
 }
@@ -71,7 +71,7 @@ pub async fn add_stickers_command<DB>(
 {
     router
         .message
-        .register(add_stickers::<MemoryStorage>)
+        .register(add_stickers_handler::<MemoryStorage>)
         .filter(ChatType::one(ChatTypeEnum::Private))
         .filter(Command::one(command))
         .filter(ContentType::one(ContentTypeEnum::Text));
@@ -100,7 +100,7 @@ pub async fn add_stickers_command<DB>(
 pub async fn steal_sticker_set_command(router: &mut Router<Reqwest>, command: &'static str) {
     router
         .message
-        .register(steal_sticker_set::<MemoryStorage>)
+        .register(steal_sticker_set_handler::<MemoryStorage>)
         .filter(ChatType::one(ChatTypeEnum::Private))
         .filter(Command::one(command))
         .filter(ContentType::one(ContentTypeEnum::Text));

@@ -35,12 +35,12 @@ impl From<BeginError> for HandlerError {
 }
 
 #[derive(Debug, Clone, thiserror::Error)]
-#[error("{message}")]
-struct DontHaveStolenStickers {
+#[error("Error occurded while getting buttons: {message}")]
+struct GetButtonsError {
     message: Cow<'static, str>,
 }
 
-impl DontHaveStolenStickers {
+impl GetButtonsError {
     fn new(message: impl Into<Cow<'static, str>>) -> Self {
         Self {
             message: message.into(),
@@ -48,7 +48,7 @@ impl DontHaveStolenStickers {
     }
 }
 
-pub async fn my_stickers<S, UoWFactory>(
+pub async fn my_stickers_handler<S, UoWFactory>(
     bot: Bot,
     message: MessageText,
     fsm: FSMContext<S>,
@@ -72,8 +72,6 @@ where
         .get_by_tg_id(GetSetByTgID::new(user_id))
         .await
         .map_err(HandlerError::new)?;
-
-    uow.commit().await.map_err(HandlerError::new)?;
 
     let mut buttons: Vec<Vec<InlineKeyboardButton>> = Vec::new();
 
@@ -199,8 +197,6 @@ where
         .await
         .map_err(HandlerError::new)?;
 
-    uow.commit().await.map_err(HandlerError::new)?;
-
     let sticker_sets_page = current_page_message(
         current_page,
         pages_number,
@@ -237,7 +233,7 @@ fn get_buttons(
     list: &[Set],
     sticker_sets_number_per_page: usize,
     buttons: &mut Vec<Vec<InlineKeyboardButton>>,
-) -> Result<u32, DontHaveStolenStickers> {
+) -> Result<u32, GetButtonsError> {
     let mut page_count: u32 = 0;
     let mut current_row_index = 0;
 
@@ -267,7 +263,7 @@ fn get_buttons(
             })
     // otherwise user does not have sticker sets stolen by this bot
     } else {
-        return Err(DontHaveStolenStickers::new(
+        return Err(GetButtonsError::new(
             "You don't have a single stolen sticker pack. \
             Steal any sticker pack using the /stealpack command and it will appear in this list.",
         ));

@@ -5,41 +5,33 @@ use telers::{
     errors::HandlerError,
     event::{telegram::HandlerResult, EventReturn},
     fsm::{Context, Storage},
-    methods::{AddStickerToSet, DeleteMessage, GetMe, GetStickerSet, SendMessage},
-    types::{InputFile, InputSticker, MessageSticker, MessageText, Sticker},
+    methods::{DeleteMessage, GetMe, GetStickerSet, SendMessage},
+    types::{MessageSticker, MessageText, ReplyParameters, Sticker},
     utils::text::{html_bold, html_text_link},
     Bot,
 };
 
-use tracing::{debug, error};
+use tracing::error;
 
 use crate::{
     application::{
         common::{
-            exceptions::{ApplicationException, BeginError, RepoKind, TransactionKind},
+            exceptions::{RepoKind, TransactionKind},
             traits::uow::{UoW as UoWTrait, UoWFactory as UoWFactoryTrait},
         },
-        set::{
-            dto::{create::Create as CreateSet, get_by_short_name::GetByShortName},
-            traits::SetRepo,
-        },
+        set::{dto::create::Create as CreateSet, traits::SetRepo},
         user::{
-            dto::{
-                create::Create as CreateUser, get_by_tg_id::GetByTgID as GetUserByTgID,
-                update_sets_number::UpdateSetsNumber,
-            },
+            dto::{create::Create as CreateUser, get_by_tg_id::GetByTgID as GetUserByTgID},
             traits::UserRepo,
         },
     },
-    bot_commands::states::AddStickerState,
-    common::sticker_format,
+    bot_commands::{handlers::add_stickers, states::AddStickerState},
     core::stickers::constants::MAX_STICKER_SET_LENGTH,
-    domain::entities::set::Set,
     middlewares::client_application::Client,
     telegram_application::{get_owned_stolen_sticker_sets, get_sticker_set_user_id},
 };
 
-pub async fn add_stickers<S: Storage>(
+pub async fn add_stickers_handler<S: Storage>(
     bot: Bot,
     message: MessageText,
     fsm: Context<S>,
@@ -126,10 +118,13 @@ where
         Ok(Err(err)) => {
             error!(%err, "failed to get sticker set user id:");
 
-            bot.send(SendMessage::new(
-                message.chat.id(),
-                "Sorry, an error occurs. Try send this sticker again :(",
-            ))
+            bot.send(
+                SendMessage::new(
+                    message.chat.id(),
+                    "Sorry, an error occurs. Try send this sticker again :(",
+                )
+                .reply_parameters(ReplyParameters::new(message.id).chat_id(message.chat.id())),
+            )
             .await?;
 
             return Ok(EventReturn::Finish);
@@ -137,10 +132,13 @@ where
         Err(err) => {
             error!(%err, "too long time to get sticker set user id:");
 
-            bot.send(SendMessage::new(
-                message.chat.id(),
-                "Sorry, an error occurs. Try send sticker again :(",
-            ))
+            bot.send(
+                SendMessage::new(
+                    message.chat.id(),
+                    "Sorry, an error occurs. Try send sticker again :(",
+                )
+                .reply_parameters(ReplyParameters::new(message.id).chat_id(message.chat.id())),
+            )
             .await?;
 
             return Ok(EventReturn::Finish);
@@ -149,7 +147,7 @@ where
 
     let mut uow = uow_factory.create_uow();
 
-    create_sticker_set_if_not_exists(
+    create_sticker_set_or_ignore(
         &mut uow,
         sticker_set_name.as_ref(),
         sticker_set_title.as_ref(),
@@ -158,12 +156,9 @@ where
     .await
     .map_err(HandlerError::new)?;
 
-    let db_result = uow
-        .user_repo()
+    create_user_or_ignore(&mut uow, user_id)
         .await
-        .map_err(HandlerError::new)?
-        .get_by_tg_id(GetUserByTgID::new(user_id))
-        .await;
+        .map_err(HandlerError::new)?;
 
     // if let Err(err) = get_owned_stolen_sticker_sets(&client, user_id, &bot_username).await {
     //     error!(%err, "failed to get user owned stolen sticker sets:");
@@ -209,7 +204,7 @@ where
                 format!("Total length of this sticker pack = {set_length}. This means you can add a maximum of {} stickers, \
                 otherwise you will get error because the maximum size of a sticker pack in current time = {MAX_STICKER_SET_LENGTH} stickers.",
                 MAX_STICKER_SET_LENGTH - set_length),
-            ))
+            ).reply_parameters(ReplyParameters::new(message.id).chat_id(message.chat.id())))
             .await?
     } else {
         bot.send(SendMessage::new(
@@ -217,15 +212,18 @@ where
                 format!("Sorry, but this sticker pack contains {MAX_STICKER_SET_LENGTH} stickers! :(\n\
                 You cant add more stickers, because the maximum size of a sticker pack in current time = {MAX_STICKER_SET_LENGTH} \
                 stickers. Try send another pack(or delete some stickers from this sticker pack).")
-            ))
+            ).reply_parameters(ReplyParameters::new(message.id).chat_id(message.chat.id())))
             .await?;
 
         return Ok(EventReturn::Finish);
     };
 
-    fsm.set_value("get_stolen_sticker_set", sticker_set_name)
-        .await
-        .map_err(Into::into)?;
+    fsm.set_value(
+        "get_stolen_sticker_set",
+        (sticker_set_name, sticker_set_title),
+    )
+    .await
+    .map_err(Into::into)?;
 
     fsm.set_state(AddStickerState::GetStickersToAdd)
         .await
@@ -256,13 +254,24 @@ pub async fn get_stickers_to_add<S: Storage>(
 ) -> HandlerResult {
     let sticker = message.sticker;
 
+    if sticker.emoji.is_none() {
+        bot.send(
+            SendMessage::new(
+                message.chat.id(),
+                "Sorry, but this sticker is without emoji. Try send another sticker.",
+            )
+            .reply_parameters(ReplyParameters::new(message.id).chat_id(message.chat.id())),
+        )
+        .await?;
+    }
+
     let sticker_vec: Vec<Sticker> = match fsm
         .get_value::<&str, Vec<Sticker>>("get_stickers_to_add")
         .await
         .map_err(Into::into)?
     {
         Some(mut get_sticker_vec) => {
-            let sticker_set_name: Box<str> = fsm
+            let (sticker_set_name, _): (Box<str>, Box<str>) = fsm
                 .get_value("get_stolen_sticker_set")
                 .await
                 .map_err(Into::into)?
@@ -301,10 +310,13 @@ pub async fn get_stickers_to_add<S: Storage>(
         .await
         .map_err(Into::into)?;
 
-    bot.send(SendMessage::new(
-        message.chat.id(),
-        "Sticker processed! Send the next one, or use the /done command if you're ready.",
-    ))
+    bot.send(
+        SendMessage::new(
+            message.chat.id(),
+            "Sticker processed! Send the next one, or use the /done command if you're ready.",
+        )
+        .reply_parameters(ReplyParameters::new(message.id).chat_id(message.chat.id())),
+    )
     .await?;
 
     Ok(EventReturn::Finish)
@@ -317,7 +329,7 @@ pub async fn add_stickers_to_user_owned_sticker_set<S: Storage>(
     message: MessageText,
     fsm: Context<S>,
 ) -> HandlerResult {
-    let sticker_set_name: Box<str> = fsm
+    let (sticker_set_name, sticker_set_title): (Box<str>, Box<str>) = fsm
         .get_value("get_stolen_sticker_set")
         .await
         .map_err(Into::into)?
@@ -354,45 +366,35 @@ pub async fn add_stickers_to_user_owned_sticker_set<S: Storage>(
         ))
         .await?;
 
-    for sticker_to_add in stickers_to_add_vec {
-        if let Err(err) = bot
-            .send(AddStickerToSet::new(user_id, sticker_set_name.as_ref(), {
-                let sticker_is = InputSticker::new(
-                    InputFile::id(sticker_to_add.file_id.as_ref()),
-                    // in this function just above the presence of stickers is checked so cant panic
-                    sticker_format(&[sticker_to_add.clone()]).expect("stickers not specifed"),
-                );
+    let all_stickers_was_added = add_stickers(
+        &bot,
+        user_id,
+        sticker_set_name.as_ref(),
+        stickers_to_add_vec.as_ref(),
+    )
+    .await
+    .expect("empty stickers list");
 
-                sticker_is.emoji_list(sticker_to_add.emoji)
-            }))
-            .await
-        {
-            error!(?err, "error occureded while adding sticker to sticker set:");
-            debug!("sticker set name: {}", sticker_set_name);
-
-            bot.send(SendMessage::new(
+    if !all_stickers_was_added {
+        bot.send(
+            SendMessage::new(
                 message.chat.id(),
-                "Error occurded while adding sticker(s) to sticker pack :( Try again.",
-            ))
-            .await?;
-
-            return Ok(EventReturn::Finish);
-        }
-
-        // sleep because you can’t send telegram api requests more often than per second
-        tokio::time::sleep(Duration::from_millis(1010)).await;
+                format!(
+                    "Error occurded while adding stickers, {but_added}! Due to an error, not all stickers have been added :(",
+                    but_added = html_bold("but some stickers was added"),
+                ),
+            )
+            .parse_mode(ParseMode::HTML),
+        )
+        .await?;
     }
-    let sticker_set_title = bot
-        .send(GetStickerSet::new(sticker_set_name.as_ref()))
-        .await?
-        .title;
 
     bot.send(
         SendMessage::new(
             message.chat.id(),
             format!(
-                "This sticker(s) was added into {}!",
-                html_text_link(
+                "This sticker(s) was added into {set}!",
+                set = html_text_link(
                     sticker_set_title,
                     format!("t.me/addstickers/{}", sticker_set_name)
                 )
@@ -412,7 +414,7 @@ pub async fn add_stickers_to_user_owned_sticker_set<S: Storage>(
     Ok(EventReturn::Finish)
 }
 
-pub async fn create_sticker_set_if_not_exists<UoW>(
+pub async fn create_sticker_set_or_ignore<UoW>(
     uow: &mut UoW,
     set_name: &str,
     title: &str,
@@ -429,17 +431,13 @@ where
         .await;
 
     match result {
-        Ok(()) => {}
-        Err(RepoKind::Unexpected(err)) => {
-            error!(?err, "Repository error:");
-
+        Ok(_) => (),
+        Err(RepoKind::Unexpected(_)) => {
             uow.rollback()
                 .await
                 .map_err(TransactionKind::rollback_err)?;
         }
-        Err(RepoKind::Exception(err)) => {
-            error!(?err, "Sticker set already exists:");
-
+        Err(RepoKind::Exception(_)) => {
             return Ok(());
         }
     };
@@ -449,4 +447,30 @@ where
     Ok(())
 }
 
-pub async fn create_user_if_not_exist<UoW>(uow: &mut UoW, tg_id: i64) {}
+pub async fn create_user_or_ignore<UoW>(uow: &mut UoW, tg_id: i64) -> Result<(), TransactionKind>
+where
+    UoW: UoWTrait,
+{
+    let result = uow
+        .user_repo()
+        .await
+        .map_err(TransactionKind::begin_err)?
+        .create(CreateUser::new(tg_id))
+        .await;
+
+    match result {
+        Ok(_) => (),
+        Err(RepoKind::Unexpected(_)) => {
+            uow.rollback()
+                .await
+                .map_err(TransactionKind::rollback_err)?;
+        }
+        Err(RepoKind::Exception(_)) => {
+            return Ok(());
+        }
+    }
+
+    uow.commit().await.map_err(TransactionKind::commit_err)?;
+
+    Ok(())
+}

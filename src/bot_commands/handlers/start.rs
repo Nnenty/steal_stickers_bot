@@ -8,7 +8,11 @@ use telers::{
 
 use crate::texts::start_message;
 
-pub async fn start<S: Storage>(bot: Bot, message: Message, fsm: Context<S>) -> HandlerResult {
+pub async fn start_handler<S: Storage>(
+    bot: Bot,
+    message: Message,
+    fsm: Context<S>,
+) -> HandlerResult {
     fsm.finish().await.map_err(Into::into)?;
 
     // only can panic if messages uses in channels, but i'm using private filter in main function

@@ -8,7 +8,7 @@ use crate::{
     application::{
         common::exceptions::RepoKind,
         user::{
-            dto::{create::Create, get_by_tg_id::GetByTgID, update_sets_number::UpdateSetsNumber},
+            dto::{create::Create, get_by_tg_id::GetByTgID},
             exceptions::{UserTgIdAlreadyExists, UserTgIdNotExist},
             traits::UserRepo,
         },
@@ -61,11 +61,7 @@ impl UserRepo for UserRepoImpl<&mut PgConnection> {
 
     async fn get_by_tg_id(&mut self, user: GetByTgID) -> Result<User, RepoKind<UserTgIdNotExist>> {
         let (sql_query, values) = Query::select()
-            .columns([
-                Alias::new("tg_id"),
-                Alias::new("sets_number"),
-                Alias::new("created"),
-            ])
+            .columns([Alias::new("tg_id"), Alias::new("created")])
             .from(Alias::new("users"))
             .and_where(Expr::col(Alias::new("tg_id")).eq(user.tg_id()))
             .build_sqlx(PostgresQueryBuilder);
@@ -76,32 +72,6 @@ impl UserRepo for UserRepoImpl<&mut PgConnection> {
             .fetch_one(&mut *self.conn)
             .await
             .map(|user_model: UserModel| user_model.into())
-            .map_err(|err| {
-                if let sqlx::Error::RowNotFound = err {
-                    return RepoKind::exception(UserTgIdNotExist::new(
-                        user.tg_id(),
-                        err.to_string(),
-                    ));
-                }
-
-                RepoKind::unexpected(err)
-            })
-    }
-
-    async fn update_sets_number(
-        &mut self,
-        user: UpdateSetsNumber,
-    ) -> Result<(), RepoKind<UserTgIdNotExist>> {
-        let (sql_query, values) = Query::update()
-            .table(Alias::new("users"))
-            .values([(Alias::new("sets_number"), user.sets_number().into())])
-            .and_where(Expr::col(Alias::new("tg_id")).eq(user.tg_id()))
-            .build_sqlx(PostgresQueryBuilder);
-
-        sqlx::query_with(&sql_query, values)
-            .execute(&mut *self.conn)
-            .await
-            .map(|_| ())
             .map_err(|err| {
                 if let sqlx::Error::RowNotFound = err {
                     return RepoKind::exception(UserTgIdNotExist::new(
