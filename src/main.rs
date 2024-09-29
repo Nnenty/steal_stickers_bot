@@ -1,5 +1,7 @@
 use std::process;
 
+use application::common::traits::uow::UoWFactory as _;
+use infrastructure::database::uow::UoWFactory;
 use sqlx::Postgres;
 use telers::{
     client::Reqwest,
@@ -33,8 +35,7 @@ use bot_commands::{
 };
 use config::ConfigToml;
 use core::{common, texts};
-use infrastructure::database::uow::UoWFactory;
-use middlewares::{ClientApplication, DatabaseMiddleware};
+use middlewares::{ClientApplication, CreateUserMiddleware, DatabaseMiddleware};
 use telegram_application::{client_authorize, client_connect};
 
 async fn set_commands(bot: Bot) -> Result<(), HandlerError> {
@@ -155,27 +156,34 @@ async fn main() {
     let bot = Bot::new(config.bot.bot_token);
 
     let mut main_router: Router<Reqwest> = Router::new("main");
-    let mut router = Router::new("private");
+    let mut private_router = Router::new("private");
 
     let storage = MemoryStorage::new();
 
-    router
+    private_router
         .update
         .outer_middlewares
         .register(FSMContext::new(storage).strategy(Strategy::UserInChat));
 
-    router
+    private_router
         .update
         .outer_middlewares
-        .register(DatabaseMiddleware::new(UoWFactory::new(pool)));
+        .register(DatabaseMiddleware::new(UoWFactory::new(pool.clone())));
 
-    router
+    private_router
         .message
         .outer_middlewares
         .register(ClientApplication::new(client, api_id, api_hash));
 
+    private_router
+        .update
+        .outer_middlewares
+        .register(CreateUserMiddleware::new(
+            UoWFactory::new(pool).create_uow(),
+        ));
+
     process_non_command(
-        &mut router,
+        &mut private_router,
         &[
             "source",
             "src",
@@ -188,21 +196,21 @@ async fn main() {
     )
     .await;
 
-    start_command(&mut router, &["start", "help"]).await;
+    start_command(&mut private_router, &["start", "help"]).await;
 
-    source_command(&mut router, &["src", "source"]).await;
+    source_command(&mut private_router, &["src", "source"]).await;
 
-    cancel_command(&mut router, &["cancel"]).await;
+    cancel_command(&mut private_router, &["cancel"]).await;
 
-    add_stickers_command::<Postgres>(&mut router, "addstickers", "done").await;
+    add_stickers_command::<Postgres>(&mut private_router, "addstickers", "done").await;
 
-    steal_sticker_set_command(&mut router, "stealpack").await;
+    steal_sticker_set_command::<Postgres>(&mut private_router, "stealpack").await;
 
-    my_stickers::<Postgres>(&mut router, "mystickers").await;
+    my_stickers::<Postgres>(&mut private_router, "mystickers").await;
 
-    process_non_sticker(&mut router, ContentTypeEnum::Sticker).await;
+    process_non_sticker(&mut private_router, ContentTypeEnum::Sticker).await;
 
-    main_router.include(router);
+    main_router.include(private_router);
     main_router.startup.register(set_commands, (bot.clone(),));
 
     let dispatcher = Dispatcher::builder()

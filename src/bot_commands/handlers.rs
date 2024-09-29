@@ -18,5 +18,5 @@ pub use my_stickers::{my_stickers_handler, process_button};
 pub use source::source_handler;
 pub use start::start_handler;
 pub use steal_sticker_set::{
-    create_new_sticker_set, steal_sticker_set_handler, steal_sticker_set_name,
+    create_new_sticker_set, get_sticker_set_name, steal_sticker_set_handler,
 };

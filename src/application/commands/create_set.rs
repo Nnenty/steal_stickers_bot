@@ -24,6 +24,7 @@ where
                 .await
                 .map_err(TransactionKind::rollback_err)?;
         }
+        // skip if created
         Err(RepoKind::Exception(_)) => {
             return Ok(());
         }

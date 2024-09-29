@@ -50,9 +50,9 @@ impl ClientApplication {
 #[async_trait]
 impl OuterMiddleware for ClientApplication {
     async fn call(&self, request: Request) -> Result<MiddlewareResponse, EventErrorKind> {
-        let now = Utc::now().time();
-
         let mut lock = self.last_update_time.lock().await;
+
+        let now = Utc::now().time();
 
         if (now - *lock).num_minutes() >= 10 {
             debug!("Update client");

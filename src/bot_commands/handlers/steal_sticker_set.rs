@@ -1,6 +1,6 @@
 use telers::{
     enums::ParseMode,
-    errors::session::ErrorKind,
+    errors::{session::ErrorKind, HandlerError},
     event::{telegram::HandlerResult, EventReturn},
     fsm::{Context, Storage},
     methods::{CreateNewStickerSet, DeleteMessage, GetMe, GetStickerSet, SendMessage},
@@ -11,6 +11,10 @@ use telers::{
 use tracing::error;
 
 use crate::{
+    application::{
+        commands::create_set::create_set, common::traits::uow::UoWFactory as UoWFactoryTrait,
+        set::dto::create::Create as CreateSet,
+    },
     bot_commands::states::StealStickerSetState,
     core::stickers::constants::CREATE_SET_IN_ONE_GO_LENGTH_LIMIT,
 };
@@ -41,7 +45,7 @@ pub async fn steal_sticker_set_handler<S: Storage>(
     Ok(EventReturn::Finish)
 }
 
-pub async fn steal_sticker_set_name<S: Storage>(
+pub async fn get_sticker_set_name<S: Storage>(
     bot: Bot,
     message: MessageSticker,
     fsm: Context<S>,
@@ -78,13 +82,18 @@ pub async fn steal_sticker_set_name<S: Storage>(
 
 /// ### Panics
 /// - Panics if user is unknown (only if message sent in channel)
-pub async fn create_new_sticker_set<S: Storage>(
+pub async fn create_new_sticker_set<S, UoWFactory>(
     bot: Bot,
     message: MessageText,
     fsm: Context<S>,
-) -> HandlerResult {
+    uow_factory: UoWFactory,
+) -> HandlerResult
+where
+    UoWFactory: UoWFactoryTrait,
+    S: Storage,
+{
     // if user enter wrong sticker set title, process it
-    let set_title = if message.text.len() > 64 {
+    let new_set_title = if message.text.len() > 64 {
         bot.send(SendMessage::new(
             message.chat.id(),
             "Too long name for sticker pack! Try enter a name up to 64 characters long.",
@@ -132,12 +141,13 @@ pub async fn create_new_sticker_set<S: Storage>(
     let user_id = message.from.expect("user without id").id;
 
     // prepare name for new sticker set and link to use it in message later
-    let (mut set_name, mut set_link) = generate_sticker_set_name_and_link(11, &bot_username);
+    let (mut new_set_name, mut new_set_link) =
+        generate_sticker_set_name_and_link(11, &bot_username);
 
     let message_delete = bot.send(SendMessage::new(
         message.chat.id(),
         format!(
-            "Stealing sticker pack with name `{set_title}` for you..\n(stealing sticker packs \
+            "Stealing sticker pack with name `{new_set_title}` for you..\n(stealing sticker packs \
             containing more than {CREATE_SET_IN_ONE_GO_LENGTH_LIMIT} stickers can take up to a several minutes due to some internal limitations)",
         ),
     ))
@@ -153,8 +163,8 @@ pub async fn create_new_sticker_set<S: Storage>(
     while let Err(err) = bot
         .send(CreateNewStickerSet::new(
             user_id,
-            &set_name,
-            set_title.as_ref(),
+            new_set_name.as_str(),
+            new_set_title.as_ref(),
             steal_stickers_from_sticker_set[..limit_sticker_set_length]
                 .into_iter()
                 .map(|sticker| {
@@ -180,12 +190,13 @@ pub async fn create_new_sticker_set<S: Storage>(
                         ?err,
                         "file to create new sticker set; try generate sticker set name again:"
                     );
-                    error!(set_name, "sticker set name:");
+                    error!(new_set_name, "sticker set name:");
 
-                    (set_name, set_link) = generate_sticker_set_name_and_link(11, &bot_username);
+                    (new_set_name, new_set_link) =
+                        generate_sticker_set_name_and_link(11, &bot_username);
                 } else {
                     error!(?err, "file to create new sticker set:");
-                    error!(set_name, "sticker set name:");
+                    error!(new_set_name, "sticker set name:");
 
                     bot.send(SendMessage::new(
                         message.chat.id(),
@@ -210,11 +221,20 @@ pub async fn create_new_sticker_set<S: Storage>(
         }
     }
 
+    let mut uow = uow_factory.create_uow();
+
+    create_set(
+        &mut uow,
+        CreateSet::new(user_id, new_set_name.as_str(), new_set_title.as_ref()),
+    )
+    .await
+    .map_err(HandlerError::new)?;
+
     if more_than_limit {
         let all_stickers_was_added = add_stickers(
             &bot,
             user_id,
-            set_name.as_ref(),
+            new_set_name.as_ref(),
             steal_stickers_from_sticker_set[limit_sticker_set_length..].as_ref(),
         )
         .await
@@ -229,7 +249,7 @@ pub async fn create_new_sticker_set<S: Storage>(
                     (you can delete this sticker pack using the /delpack command in official Telegram bot @Stickers. \
                     Name of this sticker pack: {copy_set_name})",
                     but_created = html_bold("but sticker pack was created"),
-                    copy_set_name = html_code(&set_name)
+                    copy_set_name = html_code(new_set_name.as_str())
                 ),
             ).parse_mode(ParseMode::HTML))
             .await?;
@@ -244,9 +264,9 @@ pub async fn create_new_sticker_set<S: Storage>(
         SendMessage::new(
             message.chat.id(),
             sticker_set_message(
-                &set_title,
-                &set_name,
-                &set_link,
+                &new_set_title,
+                &new_set_name,
+                &new_set_link,
                 &steal_sticker_set_title,
                 &steal_sticker_set_link,
             ),

@@ -50,6 +50,15 @@ pub fn get_page_begin_and_end(
     (begin_page_index, end_page_index)
 }
 
+/// If `<set_name>` ends with `by_<bot_username>`, return true, otherwise return false
+pub fn set_created_by(set_name: &str, bot_username: &str) -> bool {
+    if set_name.ends_with(format!("by_{bot_username}").as_str()) {
+        return true;
+    }
+
+    false
+}
+
 #[test]
 fn sticker_format_test() {
     let (generated_name, generated_link) = generate_sticker_set_name_and_link(15, "your_bot");

@@ -4,7 +4,7 @@ use grammers_client::{Client, Config, FixedReconnect, InitParams, SignInError};
 use grammers_session::Session;
 use grammers_tl_types::{
     enums::{self, InputStickerSet},
-    functions::messages::{GetAllStickers, GetStickerSet},
+    functions::messages::GetStickerSet,
     types::{self, InputStickerSetShortName},
 };
 
@@ -74,43 +74,6 @@ pub async fn client_authorize(
     }
 
     Ok(())
-}
-
-pub async fn get_owned_stolen_sticker_sets(
-    client: &Client,
-    user_id: i64,
-    bot_username: &str,
-) -> Result<Vec<(String, String)>, errors::Error> {
-    let sets: Vec<enums::StickerSet> =
-        match client.invoke(&GetAllStickers { hash: user_id }).await? {
-            enums::messages::AllStickers::Stickers(
-                types::messages::AllStickers { sets, .. },
-                ..,
-            ) => sets,
-            _ => todo!(),
-        };
-
-    let mut sets_names: Vec<(String, String)> = Vec::new();
-
-    sets.into_iter()
-        .filter(|set| {
-            let enums::StickerSet::Set(types::StickerSet {
-                short_name,
-                creator,
-                ..
-            }) = set;
-
-            creator.to_owned() && short_name.contains(format!("by_{bot_username}").as_str())
-        })
-        .for_each(|set| {
-            let enums::StickerSet::Set(types::StickerSet {
-                short_name, title, ..
-            }) = set;
-
-            sets_names.push((short_name, title));
-        });
-
-    Ok(sets_names)
 }
 
 pub async fn get_sticker_set_user_id(

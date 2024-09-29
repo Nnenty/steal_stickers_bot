@@ -62,18 +62,6 @@ where
 
     let mut uow = uow_factory.create_uow();
 
-    // if let Err(err) = get_owned_stolen_sticker_sets(&client, user_id, &bot_username).await {
-    //     error!(%err, "failed to get user owned stolen sticker sets:");
-
-    //     bot.send(SendMessage::new(
-    //         message.chat.id(),
-    //         "Sorry, an error occurs. Try send this sticker again :(",
-    //     ))
-    //     .await?;
-
-    //     return Ok(EventReturn::Finish);
-    // }
-
     // only panic if messages uses in channels, but i'm using private filter in main function
     let user_id = message.from.expect("user not specified").id;
 
@@ -87,10 +75,14 @@ where
 
     let mut buttons: Vec<Vec<InlineKeyboardButton>> = Vec::new();
 
-    let page_count = match get_buttons(&sticker_sets, STICKER_SETS_NUMBER_PER_PAGE, &mut buttons) {
+    let page_count = match get_buttons(
+        sticker_sets.as_ref(),
+        STICKER_SETS_NUMBER_PER_PAGE,
+        &mut buttons,
+    ) {
         Ok(pages) => pages,
         Err(err) => {
-            bot.send(SendMessage::new(message.chat.id(), err.to_string()))
+            bot.send(SendMessage::new(message.chat.id(), err.message.to_string()))
                 .await?;
 
             return Ok(EventReturn::Finish);
@@ -104,7 +96,12 @@ where
         .send(
             SendMessage::new(
                 message.chat.id(),
-                current_page_message(1, page_count, STICKER_SETS_NUMBER_PER_PAGE, &sticker_sets),
+                current_page_message(
+                    1,
+                    page_count,
+                    STICKER_SETS_NUMBER_PER_PAGE,
+                    sticker_sets.as_ref(),
+                ),
             )
             .parse_mode(ParseMode::HTML)
             .reply_markup(inline_keyboard),
@@ -143,6 +140,8 @@ where
     UoWFactory: UoWFactoryTrait,
     S: Storage,
 {
+    let mut uow = uow_factory.create_uow();
+
     let message_data = match callback_query.data {
         Some(message_data) => message_data,
         None => {
@@ -152,7 +151,7 @@ where
 
             bot.send(SendMessage::new(
                 callback_query.chat_id().expect("chat not found"),
-                "Sorry, an error occurs :( Try again.",
+                "Sorry, an error occurded. Try again :(",
             ))
             .await?;
 
@@ -198,8 +197,6 @@ where
     }
 
     let user_id = callback_query.from.id;
-
-    let mut uow = uow_factory.create_uow();
 
     let sticker_sets = uow
         .set_repo()

@@ -1,10 +1,11 @@
-use async_trait::async_trait;
 use telers::{
     errors::EventErrorKind,
     event::EventReturn,
     middlewares::{outer::MiddlewareResponse, OuterMiddleware},
     router::Request,
 };
+
+use async_trait::async_trait;
 
 use crate::application::common::traits::uow::UoWFactory as UoWFactoryTrait;
 
