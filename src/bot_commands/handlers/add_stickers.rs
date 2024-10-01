@@ -122,7 +122,7 @@ where
         loop {
             match get_sticker_set_user_id(sticker_set_name.as_ref(), &client).await {
                 Ok(set_id) => return Ok(set_id),
-                Err(err) if error_count >= 7 => return Err(err),
+                Err(err) if error_count >= 5 => return Err(err),
                 Err(err) => {
                     error!(
                         ?err,
@@ -301,7 +301,7 @@ where
             loop {
                 match get_sticker_set_user_id(sticker_to_add_set_name.as_ref(), &client).await {
                     Ok(set_id) => return Ok(set_id),
-                    Err(err) if error_count >= 7 => return Err(err),
+                    Err(err) if error_count >= 5 => return Err(err),
                     Err(err) => {
                         error!(
                             ?err,

@@ -81,13 +81,12 @@ async fn main() {
 
     let log_level = match std::env::var("LOG_LEVEL") {
         Ok(log_level) => log_level,
-        Err(_) => config.tracing.log_level,
+        Err(_) => config.clone().tracing.log_level,
     };
 
-    let db_url = match std::env::var("DATABASE_URL") {
-        Ok(db_url) => db_url,
-        Err(_) => config.database.db_url,
-    };
+    let db_url = config.get_postgres_url();
+
+    println!("{db_url}");
 
     tracing_subscriber::registry()
         .with(fmt::layer())

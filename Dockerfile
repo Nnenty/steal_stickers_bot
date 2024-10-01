@@ -1,5 +1,3 @@
-# I took this dockerfile config from https://github.com/Desiders/get_anime_bot_rs
-
 FROM debian:bullseye-slim AS base
 RUN apt-get update \
     && apt-get install -y --no-install-recommends ca-certificates \

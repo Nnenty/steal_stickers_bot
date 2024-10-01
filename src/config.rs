@@ -1,37 +1,52 @@
 use serde::Deserialize;
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Clone)]
 pub struct ConfigToml {
     pub bot: BotConfig,
     pub tg_app: Application,
     pub auth: AuthCredentials,
     pub tracing: Tracing,
-    pub database: DatabaseConfig,
+    pub postgres: DatabaseConfig,
 }
 
-#[derive(Deserialize)]
+impl ConfigToml {
+    pub fn get_postgres_url(&self) -> String {
+        let postgres = &self.postgres;
+
+        format!(
+            "postgres://{}:{}@{}:{}/{}",
+            postgres.username, postgres.password, postgres.host, postgres.port, postgres.name
+        )
+    }
+}
+
+#[derive(Deserialize, Clone)]
 pub struct DatabaseConfig {
-    pub db_url: String,
+    pub username: String,
+    pub password: String,
+    pub host: String,
+    pub port: String,
+    pub name: String,
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Clone)]
 pub struct BotConfig {
     pub bot_token: String,
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Clone)]
 pub struct Application {
     pub api_id: i32,
     pub api_hash: String,
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Clone)]
 pub struct AuthCredentials {
     pub phone_number: String,
     pub password: String,
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Clone)]
 pub struct Tracing {
     pub log_level: String,
 }

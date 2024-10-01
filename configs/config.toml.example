@@ -1,6 +1,6 @@
 # DO NOT SHOW THIS FILE TO ANYONE! IF YOU ARE GOING TO POST
 # YOUR VERSION OF THIS BOT ANYWHERE (like GitHub), MAKE SURE 
-# THAT THERE IS A `cargo.toml` line IN THE .gitignore FILE!
+# THAT THERE IS A `cargo.toml` line IN THE `.gitignore` FILE!
 # (in the original bot in .gitignore this line is written by default)
 
 # copy this file and remove `.example` from name of file
@@ -20,9 +20,14 @@ phone_number = ""
 password = ""
 
 [tracing]
-# by default `debug` level
+# default
 log_level = "debug"
 
-[database]
-# URL looks like: "postgres://{username}:{password}@{host}:{port}/{db_name}"
-db_url = ""
+[postgres]
+# full URL will looks like: "postgres://{username}:{password}@{host}:{port}/{db_name}"
+username = ""
+password = ""
+# default
+host = "steal_stickers.postgres"
+port = "5432"
+name = "db"

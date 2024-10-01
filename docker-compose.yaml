@@ -5,9 +5,37 @@ services:
     restart: "unless-stopped"
     build:
       context: .
+    networks:
+      - steal_stickers.postgres.network
     logging:
       options:
         max-size: "100m"
     volumes:
       - "./configs:/app/configs:rw"
     command: run
+    depends_on:
+      - postgres
+
+  postgres:
+    container_name: steal_stickers.postgres
+    image: "postgres:17-alpine"
+    restart: "unless-stopped"
+    networks:
+      - steal_stickers.postgres.network
+    ports:
+      - "127.0.0.1:${POSTGRES_PORT}:5432"
+    environment:
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_DB: ${POSTGRES_DB}
+    volumes:
+      - steal_stickers.postgres.data:/var/lib/postgresql/data/:rw
+    logging:
+      options:
+        max-size: "50m"
+
+volumes:
+  steal_stickers.postgres.data: {}
+
+networks:
+  steal_stickers.postgres.network: {}
