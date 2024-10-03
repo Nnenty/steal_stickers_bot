@@ -15,7 +15,7 @@ impl ConfigToml {
 
         format!(
             "postgres://{}:{}@{}:{}/{}",
-            postgres.username, postgres.password, postgres.host, postgres.port, postgres.name
+            postgres.username, postgres.password, postgres.host, postgres.port, postgres.db
         )
     }
 }
@@ -26,7 +26,7 @@ pub struct DatabaseConfig {
     pub password: String,
     pub host: String,
     pub port: String,
-    pub name: String,
+    pub db: String,
 }
 
 #[derive(Deserialize, Clone)]

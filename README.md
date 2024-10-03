@@ -16,12 +16,14 @@ git clone https://github.com/Nnenty/steal_stickers_bot
 ```
 cd steal_stickers_bot
 ```
-6. Fill [config.toml.example](./configs/config.toml.example) file with your information and remove `.example` from name.
+6. Copy [config.toml.example](./configs/config.toml.example), remove `.example` from name of file and fill it required information.
+7. Copy [.env.example](./.env.example), remove `.example` from name of file and fill it ***the same*** required information as in your file `config.toml`.
 
 <h2>Run bot</h2>
 
+1. <h4>Authorize client</h4>
 
-1. Authorize client: 
+To authorize client run command below:
 ```
 just auth
 ```
@@ -37,18 +39,24 @@ docker run -it --rm \
 ```
 > After you have launched Docker, a code should be sent to your Telegram account.
 Enter this code into your terminal.
-2. Run bot:
+2. <h4>Run bot</h4>
+
+To run bot use command below:
 ```
 just compose-run
 ```
+> [Download justfile](https://github.com/casey/just?tab=readme-ov-file#pre-built-binaries)
+
 *or if you want run it manually:*
 ```
-# --rm at your discretion
-docker run --rm \
-        --log-driver local --log-opt max-size=100m \
-        --mount type=bind,source=./configs,target=/app/configs \
-        --name steal_stickers_bot steal_stickers_bot \
-        run
+docker compose up
+```
+
+3. <h4>Migrate database</h4>
+
+After running bot will start working, but database will be without migrations. To solve it, run command below with your database information (that you put into `.env` and `config.toml` files):
+```
+sqlx migrate run --source ./src/infrastructure/database/migrations --database-url="postgres://{username}:{password}@{host}:{port}/{db}"
 ```
 
 <strong>If you encounter errors that are directly related to my code (docker errors, bot errors, etc.), please [open an Issue](https://github.com/Nnenty/steal_stickers_bot/issues/new). Thanks :)</strong>

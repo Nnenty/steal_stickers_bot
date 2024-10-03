@@ -23,5 +23,4 @@ Cargo.lock
 # This files contains important confidential information
 config.toml
 .env
-
 *.session

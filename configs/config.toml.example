@@ -3,7 +3,8 @@
 # THAT THERE IS A `cargo.toml` line IN THE `.gitignore` FILE!
 # (in the original bot in .gitignore this line is written by default)
 
-# copy this file and remove `.example` from name of file
+# If you dont know, where you should get required data, read 
+# [README.md -> Preparing](https://github.com/Nnenty/steal_stickers_bot?tab=readme-ov-file#preparing).
 
 [bot]
 bot_token = ""
@@ -11,12 +12,13 @@ bot_token = ""
 [tg_app]
 # should be integer number
 api_id = 
+# should be string
 api_hash = ""
 
 [auth]
 # enter number without '+'. Example: phone_number = "491721234567"
 phone_number = ""
-# enter only if you have two-step verification with a password enabled
+# enter only if you have two-step verification enabled
 password = ""
 
 [tracing]
@@ -24,10 +26,10 @@ password = ""
 log_level = "debug"
 
 [postgres]
-# full URL will looks like: "postgres://{username}:{password}@{host}:{port}/{db_name}"
+# full URL will looks like: "postgres://{username}:{password}@{host}:{port}/{db}"
 username = ""
 password = ""
 # default
 host = "steal_stickers.postgres"
 port = "5432"
-name = "db"
+db = "db"
