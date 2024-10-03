@@ -27,7 +27,7 @@ impl AddStickersError {
 pub async fn process_non_sticker(bot: Bot, message: Message) -> HandlerResult {
     bot.send(SendMessage::new(
         message.chat().id(),
-        format!("Please, send me a sticker."),
+        "Please, send me a sticker.",
     ))
     .await?;
 
@@ -40,7 +40,7 @@ pub async fn add_stickers(
     set_name: &str,
     sticker_list: &[Sticker],
 ) -> Result<bool, AddStickersError> {
-    if sticker_list.len() < 1 {
+    if sticker_list.is_empty() {
         return Err(AddStickersError::new("list is empty"));
     }
 

@@ -40,7 +40,7 @@ pub async fn client_authorize(
     let mut sign_out = false;
 
     if !client.is_authorized().await? {
-        let token = client.request_login_code(&phone).await?;
+        let token = client.request_login_code(phone).await?;
 
         println!("Enter the code you received on your Telegram account:");
         let mut code = String::new();
@@ -49,8 +49,6 @@ pub async fn client_authorize(
 
         match client.sign_in(&token, code).await {
             Err(SignInError::PasswordRequired(password_token)) => {
-                let password = password;
-
                 client
                     .check_password(password_token, password.trim())
                     .await?;

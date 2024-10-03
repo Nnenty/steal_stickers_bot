@@ -16,7 +16,6 @@ use telers::{
 };
 
 use clap::{Parser, Subcommand};
-use toml;
 use tracing::{debug, error};
 use tracing_subscriber::{fmt, layer::SubscriberExt as _, util::SubscriberInitExt as _, EnvFilter};
 
@@ -119,8 +118,8 @@ async fn main() {
     if Commands::Auth == cli.command {
         if let Err(err) = client_authorize(
             &client,
-            &config.auth.phone_number.as_str(),
-            &config.auth.password.as_str(),
+            config.auth.phone_number.as_str(),
+            config.auth.password.as_str(),
         )
         .await
         {

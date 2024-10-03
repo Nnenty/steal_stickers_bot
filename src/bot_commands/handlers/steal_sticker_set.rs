@@ -167,11 +167,11 @@ where
             new_set_name.as_str(),
             new_set_title.as_ref(),
             steal_stickers_from_sticker_set[..limit_sticker_set_length]
-                .into_iter()
+                .iter()
                 .map(|sticker| {
                     let sticker_is: InputSticker = InputSticker::new(
                         InputFile::id(sticker.file_id.as_ref()),
-                        &sticker_format(&steal_stickers_from_sticker_set)
+                        sticker_format(&steal_stickers_from_sticker_set)
                             // i explicitly ask the user to send me a sticker, so that the
                             // sticker set will contain at least 1 sticker
                             .expect("empty sticker set"),
