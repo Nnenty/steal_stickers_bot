@@ -27,7 +27,7 @@ impl From<ClientGrammers> for Client {
 }
 
 #[derive(Debug)]
-pub struct ClientApplication {
+pub struct ClientApplicationMiddleware {
     pub key: &'static str,
     pub client: Mutex<ClientGrammers>,
     pub last_update_time: Mutex<NaiveTime>,
@@ -35,7 +35,7 @@ pub struct ClientApplication {
     pub api_hash: String,
 }
 
-impl ClientApplication {
+impl ClientApplicationMiddleware {
     pub fn new(client: ClientGrammers, api_id: i32, api_hash: String) -> Self {
         Self {
             key: "client",
@@ -48,7 +48,7 @@ impl ClientApplication {
 }
 
 #[async_trait]
-impl OuterMiddleware for ClientApplication {
+impl OuterMiddleware for ClientApplicationMiddleware {
     async fn call(&self, request: Request) -> Result<MiddlewareResponse, EventErrorKind> {
         let mut lock = self.last_update_time.lock().await;
 

@@ -1,15 +1,16 @@
 BEGIN;
 
-CREATE TABLE users (
+CREATE TABLE IF NOT EXISTS users (
     tg_id BIGINT NOT NULL,
     created TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
     UNIQUE(tg_id)
 );
 
-CREATE TABLE sets (
+CREATE TABLE IF NOT EXISTS sets (
     tg_id BIGINT NOT NULL,
     short_name TEXT NOT NULL,
     title TEXT NOT NULL,
+    deleted BOOLEAN NOT NULL DEFAULT FALSE,
     UNIQUE(short_name)
 );
 

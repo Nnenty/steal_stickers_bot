@@ -16,11 +16,11 @@ use crate::application::{
 };
 
 #[derive(Debug)]
-pub struct CreateUser<UoW> {
+pub struct CreateUserMiddleware<UoW> {
     uow: RwLock<UoW>,
 }
 
-impl<UoW> CreateUser<UoW>
+impl<UoW> CreateUserMiddleware<UoW>
 where
     UoW: UoWTrait,
 {
@@ -32,7 +32,7 @@ where
 }
 
 #[async_trait]
-impl<UoW> OuterMiddleware for CreateUser<UoW>
+impl<UoW> OuterMiddleware for CreateUserMiddleware<UoW>
 where
     UoW: UoWTrait + Send + Sync,
     for<'a> UoW::UserRepo<'a>: Send + Sync,

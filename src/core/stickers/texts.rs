@@ -74,6 +74,7 @@ fn current_page_message_test() {
         list.push(Set {
             tg_id: i,
             short_name: format!("short_name{i}"),
+            deleted: false,
             title: format!("title{i}"),
         });
     }

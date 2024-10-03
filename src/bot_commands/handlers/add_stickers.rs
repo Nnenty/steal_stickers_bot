@@ -20,7 +20,7 @@ use crate::{
     },
     bot_commands::{handlers::add_stickers, states::AddStickerState},
     core::{common::set_created_by, stickers::constants::MAX_STICKER_SET_LENGTH},
-    middlewares::client_application::Client,
+    middlewares::Client,
     telegram_application::get_sticker_set_user_id,
 };
 
@@ -106,10 +106,9 @@ where
             message.chat.id(),
             format!(
             "This sticker pack wasnt stolen by this bot, which means i cant add stickers to it according to Telegram rules! \
-            Please, send {your} sticker pack or steal this sticker pack using command /stealpack.",
-            your = html_bold("your stolen")
+            You can see your stolen sticker pack using command /mystickers or steal this sticker pack using command /stealpack.",
             )
-        ).parse_mode(ParseMode::HTML))
+        ))
         .await?;
 
         return Ok(EventReturn::Finish);
@@ -141,11 +140,8 @@ where
             error!(%err, "failed to get sticker set user id:");
 
             bot.send(
-                SendMessage::new(
-                    message.chat.id(),
-                    "Sorry, an error occurded. Try send sticker again :(",
-                )
-                .reply_parameters(ReplyParameters::new(message.id).chat_id(message.chat.id())),
+                SendMessage::new(message.chat.id(), "Sorry, an error occurded. Try again :(")
+                    .reply_parameters(ReplyParameters::new(message.id).chat_id(message.chat.id())),
             )
             .await?;
 
@@ -155,11 +151,8 @@ where
             error!(%err, "too long time to get sticker set user id:");
 
             bot.send(
-                SendMessage::new(
-                    message.chat.id(),
-                    "Sorry, an error occurded. Try send sticker again :(",
-                )
-                .reply_parameters(ReplyParameters::new(message.id).chat_id(message.chat.id())),
+                SendMessage::new(message.chat.id(), "Sorry, an error occurded. Try again :(")
+                    .reply_parameters(ReplyParameters::new(message.id).chat_id(message.chat.id())),
             )
             .await?;
 
@@ -226,7 +219,7 @@ where
 
     fsm.set_value(
         "get_stolen_sticker_set",
-        (sticker_set_name, sticker_set_title),
+        (sticker_set_name, sticker_set_title, set_length),
     )
     .await
     .map_err(Into::into)?;
@@ -266,7 +259,7 @@ where
 {
     let mut uow = uow_factory.create_uow();
 
-    let (sticker_set_name, _): (Box<str>, Box<str>) = fsm
+    let (_, _, sticker_set_length): (Box<str>, Box<str>, usize) = fsm
         .get_value("get_stolen_sticker_set")
         .await
         .map_err(Into::into)?
@@ -320,11 +313,10 @@ where
                 error!(%err, "failed to get sticker set user id:");
 
                 bot.send(
-                    SendMessage::new(
-                        message.chat.id(),
-                        "Sorry, an error occurded. Try send sticker again :(",
-                    )
-                    .reply_parameters(ReplyParameters::new(message.id).chat_id(message.chat.id())),
+                    SendMessage::new(message.chat.id(), "Sorry, an error occurded. Try again :(")
+                        .reply_parameters(
+                            ReplyParameters::new(message.id).chat_id(message.chat.id()),
+                        ),
                 )
                 .await?;
 
@@ -334,27 +326,26 @@ where
                 error!(%err, "too long time to get sticker set user id:");
 
                 bot.send(
-                    SendMessage::new(
-                        message.chat.id(),
-                        "Sorry, an error occurded. Try send sticker again :(",
-                    )
-                    .reply_parameters(ReplyParameters::new(message.id).chat_id(message.chat.id())),
+                    SendMessage::new(message.chat.id(), "Sorry, an error occurded. Try again :(")
+                        .reply_parameters(
+                            ReplyParameters::new(message.id).chat_id(message.chat.id()),
+                        ),
                 )
                 .await?;
 
                 return Ok(EventReturn::Finish);
             }
         };
+        let sticker_to_add_title = &bot
+            .send(GetStickerSet::new(sticker_to_add_set_name))
+            .await?
+            .title;
+
         let bot_username = bot
             .send(GetMe::new())
             .await?
             .username
             .expect("bot without username :/");
-
-        let sticker_to_add_title = &bot
-            .send(GetStickerSet::new(sticker_to_add_set_name))
-            .await?
-            .title;
 
         if set_created_by(sticker_to_add_set_name, bot_username.as_ref()) {
             create_set(
@@ -368,17 +359,7 @@ where
             .await
             .map_err(HandlerError::new)?;
         } else {
-            bot.send(SendMessage::new(
-            message.chat.id(),
-            format!(
-                "This sticker pack wasnt stolen by this bot, which means i cant add stickers to it according to Telegram rules! \
-                Please, send {your} sticker pack or steal this sticker pack using command /stealpack.",
-                your = html_bold("your stolen")
-            )
-        ).parse_mode(ParseMode::HTML))
-        .await?;
-
-            return Ok(EventReturn::Finish);
+            // ignore
         }
     }
 
@@ -388,15 +369,9 @@ where
         .map_err(Into::into)?
     {
         Some(mut sticker_vec) => {
-            let set_length = bot
-                .send(GetStickerSet::new(sticker_set_name.as_ref()))
-                .await?
-                .stickers
-                .len();
-
             let sticker_vec_len = sticker_vec.len();
 
-            if set_length + sticker_vec_len >= MAX_STICKER_SET_LENGTH {
+            if sticker_set_length + sticker_vec_len >= MAX_STICKER_SET_LENGTH {
                 bot.send(SendMessage::new(
                     message.chat.id(),
                     format!("Please, use command /done to add stickers (or /cancel if for some reason you change your \
@@ -439,7 +414,7 @@ pub async fn add_stickers_to_user_owned_sticker_set<S: Storage>(
     message: MessageText,
     fsm: Context<S>,
 ) -> HandlerResult {
-    let (sticker_set_name, sticker_set_title): (Box<str>, Box<str>) = fsm
+    let (sticker_set_name, sticker_set_title, _): (Box<str>, Box<str>, usize) = fsm
         .get_value("get_stolen_sticker_set")
         .await
         .map_err(Into::into)?

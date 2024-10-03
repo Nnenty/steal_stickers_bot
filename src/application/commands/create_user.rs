@@ -14,7 +14,7 @@ where
         .user_repo()
         .await
         .map_err(TransactionKind::begin_err)?
-        .create(Create::new(user.tg_id()))
+        .create(user)
         .await;
 
     match result {

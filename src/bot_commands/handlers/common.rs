@@ -11,7 +11,7 @@ use tracing::error;
 use crate::core::common::sticker_format;
 
 #[derive(Debug, Clone, thiserror::Error)]
-#[error("Error occurded adding stickers: {message}")]
+#[error("Error occurded while adding stickers: {message}")]
 pub struct AddStickersError {
     message: Cow<'static, str>,
 }

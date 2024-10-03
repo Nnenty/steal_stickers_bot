@@ -11,6 +11,7 @@ use crate::{
             dto::{
                 create::Create, delete_by_short_name::DeleteByShortName,
                 get_by_short_name::GetByShortName, get_by_tg_id::GetByTgID,
+                set_deleted_col_by_short_name::SetDeletedColByShortName,
             },
             exceptions::{SetShortNameAlreadyExist, SetShortNameNotExist, SetTgIdNotExist},
             traits::SetRepo,
@@ -50,7 +51,7 @@ impl SetRepo for SetRepoImpl<&mut PgConnection> {
             ])
             .build_sqlx(PostgresQueryBuilder);
 
-        debug!("PostgreSQL query: {sql_query};\nValues for query: {values:?}");
+        debug!("Postgres query: {sql_query};\nValues for query: {values:?}");
 
         sqlx::query_with(&sql_query, values)
             .execute(&mut *self.conn)
@@ -81,7 +82,7 @@ impl SetRepo for SetRepoImpl<&mut PgConnection> {
             .and_where(Expr::col(Alias::new("short_name")).eq(set.short_name()))
             .build_sqlx(PostgresQueryBuilder);
 
-        debug!("PostgreSQL query: {sql_query};\nValues for query: {values:?}");
+        debug!("Postgres query: {sql_query};\nValues for query: {values:?}");
 
         sqlx::query_with(&sql_query, values)
             .execute(&mut *self.conn)
@@ -103,17 +104,35 @@ impl SetRepo for SetRepoImpl<&mut PgConnection> {
         &mut self,
         set: GetByTgID,
     ) -> Result<Vec<Set>, RepoKind<SetTgIdNotExist>> {
-        let (sql_query, values) = Query::select()
-            .columns([
-                Alias::new("tg_id"),
-                Alias::new("short_name"),
-                Alias::new("title"),
-            ])
-            .from(Alias::new("sets"))
-            .and_where(Expr::col(Alias::new("tg_id")).eq(set.tg_id()))
-            .build_sqlx(PostgresQueryBuilder);
+        let (sql_query, values) = if set.get_deleted().is_some() {
+            Query::select()
+                .columns([
+                    Alias::new("tg_id"),
+                    Alias::new("short_name"),
+                    Alias::new("title"),
+                    Alias::new("deleted"),
+                ])
+                .from(Alias::new("sets"))
+                .and_where(Expr::col(Alias::new("tg_id")).eq(set.tg_id()))
+                .and_where(
+                    Expr::col(Alias::new("deleted"))
+                        .eq(set.get_deleted().expect("`get_deleted` is None")),
+                )
+                .build_sqlx(PostgresQueryBuilder)
+        } else {
+            Query::select()
+                .columns([
+                    Alias::new("tg_id"),
+                    Alias::new("short_name"),
+                    Alias::new("title"),
+                    Alias::new("deleted"),
+                ])
+                .from(Alias::new("sets"))
+                .and_where(Expr::col(Alias::new("tg_id")).eq(set.tg_id()))
+                .build_sqlx(PostgresQueryBuilder)
+        };
 
-        debug!("PostgreSQL query: {sql_query};\nValues for query: {values:?}");
+        debug!("Postgres query: {sql_query};\nValues for query: {values:?}");
 
         sqlx::query_as_with(&sql_query, values)
             .fetch_all(&mut *self.conn)
@@ -142,12 +161,40 @@ impl SetRepo for SetRepoImpl<&mut PgConnection> {
             .and_where(Expr::col(Alias::new("short_name")).eq(set.short_name()))
             .build_sqlx(PostgresQueryBuilder);
 
-        debug!("PostgreSQL query: {sql_query};\nValues for query: {values:?}");
+        debug!("Postgres query: {sql_query};\nValues for query: {values:?}");
 
         sqlx::query_as_with(&sql_query, values)
             .fetch_one(&mut *self.conn)
             .await
             .map(|set_model: SetModel| set_model.into())
+            .map_err(|err| {
+                if let sqlx::Error::RowNotFound = err {
+                    return RepoKind::exception(SetShortNameNotExist::new(
+                        set.short_name().to_string(),
+                        err.to_string(),
+                    ));
+                }
+
+                RepoKind::unexpected(err)
+            })
+    }
+
+    async fn set_deleted_col_by_short_name<'a>(
+        &'a mut self,
+        set: SetDeletedColByShortName<'a>,
+    ) -> Result<(), RepoKind<SetShortNameNotExist>> {
+        let (sql_query, values) = Query::update()
+            .table(Alias::new("sets"))
+            .value(Alias::new("deleted"), set.deleted())
+            .and_where(Expr::col(Alias::new("short_name")).eq(set.short_name()))
+            .build_sqlx(PostgresQueryBuilder);
+
+        debug!("Postgres query: {sql_query};\nValues for query: {values:?}");
+
+        sqlx::query_with(&sql_query, values)
+            .execute(&mut *self.conn)
+            .await
+            .map(|_| ())
             .map_err(|err| {
                 if let sqlx::Error::RowNotFound = err {
                     return RepoKind::exception(SetShortNameNotExist::new(

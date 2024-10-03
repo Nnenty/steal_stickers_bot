@@ -5,6 +5,7 @@ use sqlx::FromRow;
 pub struct Set {
     pub tg_id: i64,
     pub short_name: String,
+    pub deleted: bool,
     pub title: String,
 }
 
@@ -13,6 +14,7 @@ impl<'a> From<Set> for SetEntitie {
         Self {
             tg_id: value.tg_id,
             short_name: value.short_name,
+            deleted: value.deleted,
             title: value.title,
         }
     }

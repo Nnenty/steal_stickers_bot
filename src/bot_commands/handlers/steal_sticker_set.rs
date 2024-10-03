@@ -5,7 +5,7 @@ use telers::{
     fsm::{Context, Storage},
     methods::{CreateNewStickerSet, DeleteMessage, GetMe, GetStickerSet, SendMessage},
     types::{InputFile, InputSticker, MessageSticker, MessageText},
-    utils::text::{html_bold, html_code},
+    utils::text::{html_bold, html_code, html_text_link},
     Bot,
 };
 use tracing::error;
@@ -200,7 +200,7 @@ where
 
                     bot.send(SendMessage::new(
                         message.chat.id(),
-                        format!("Error occurded while creating new sticker pack :(\nTry again."),
+                        "Error occurded while creating new sticker pack :(",
                     ))
                     .await?;
 
@@ -212,7 +212,7 @@ where
 
                 bot.send(SendMessage::new(
                     message.chat.id(),
-                    format!("Error occurded while creating new sticker pack :("),
+                    "Error occurded while creating new sticker pack :(",
                 ))
                 .await?;
 
@@ -244,10 +244,11 @@ where
             bot.send(SendMessage::new(
                 message.chat.id(),
                 format!(
-                    "Error occurded while creating new sticker pack, {but_created}! \
+                    "Error occurded while creating new sticker pack {created_pack}, {but_created}! \
                     Due to an error, not all stickers have been stolen :(\n\
                     (you can delete this sticker pack using the /delpack command in official Telegram bot @Stickers. \
                     Name of this sticker pack: {copy_set_name})",
+                    created_pack = html_text_link(new_set_title, new_set_link),
                     but_created = html_bold("but sticker pack was created"),
                     copy_set_name = html_code(new_set_name.as_str())
                 ),

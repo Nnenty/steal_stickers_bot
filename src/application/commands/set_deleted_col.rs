@@ -3,10 +3,13 @@ use crate::application::{
         exceptions::{RepoKind, TransactionKind},
         traits::uow::UoW as UoWTrait,
     },
-    set::{dto::create::Create, traits::SetRepo as _},
+    set::{dto::set_deleted_col_by_short_name::SetDeletedColByShortName, traits::SetRepo as _},
 };
 
-pub async fn create_set<'a, UoW>(uow: &'a mut UoW, set: Create<'a>) -> Result<(), TransactionKind>
+pub async fn set_deleted_col<UoW>(
+    uow: &mut UoW,
+    set: SetDeletedColByShortName<'_>,
+) -> Result<(), TransactionKind>
 where
     UoW: UoWTrait,
 {
@@ -14,7 +17,7 @@ where
         .set_repo()
         .await
         .map_err(TransactionKind::begin_err)?
-        .create(set)
+        .set_deleted_col_by_short_name(set)
         .await;
 
     match result {
@@ -24,11 +27,10 @@ where
                 .await
                 .map_err(TransactionKind::rollback_err)?;
         }
-        // skip if created
         Err(RepoKind::Exception(_)) => {
             return Ok(());
         }
-    };
+    }
 
     uow.commit().await.map_err(TransactionKind::commit_err)?;
 

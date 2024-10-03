@@ -15,7 +15,6 @@ impl<'a> Create<'a> {
             title,
         }
     }
-
     pub const fn tg_id(&self) -> i64 {
         self.tg_id
     }

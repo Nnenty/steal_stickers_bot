@@ -35,7 +35,9 @@ use bot_commands::{
 };
 use config::ConfigToml;
 use core::{common, texts};
-use middlewares::{ClientApplication, CreateUserMiddleware, DatabaseMiddleware};
+use middlewares::{
+    ClientApplicationMiddleware, CreateUserMiddleware, DatabaseMiddleware, DeletedSetsMiddleware,
+};
 use telegram_application::{client_authorize, client_connect};
 
 async fn set_commands(bot: Bot) -> Result<(), HandlerError> {
@@ -86,8 +88,6 @@ async fn main() {
 
     let db_url = config.get_postgres_url();
 
-    println!("{db_url}");
-
     tracing_subscriber::registry()
         .with(fmt::layer())
         .with(
@@ -129,7 +129,7 @@ async fn main() {
             process::exit(1);
         };
 
-        debug!("Client sucessfully authorized! Now run programm using command:\ndocker compose up --build");
+        debug!("Client sucessfully authorized! Now run programm using command:\njust compose-run OR just compose-run-build");
 
         process::exit(0);
     }
@@ -170,15 +170,23 @@ async fn main() {
         .register(DatabaseMiddleware::new(UoWFactory::new(pool.clone())));
 
     private_router
-        .message
+        .update
         .outer_middlewares
-        .register(ClientApplication::new(client, api_id, api_hash));
+        .register(ClientApplicationMiddleware::new(client, api_id, api_hash));
 
     private_router
         .update
         .outer_middlewares
         .register(CreateUserMiddleware::new(
+            UoWFactory::new(pool.clone()).create_uow(),
+        ));
+
+    private_router
+        .update
+        .outer_middlewares
+        .register(DeletedSetsMiddleware::new(
             UoWFactory::new(pool).create_uow(),
+            bot.clone(),
         ));
 
     process_non_command(

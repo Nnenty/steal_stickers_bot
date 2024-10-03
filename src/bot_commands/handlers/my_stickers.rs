@@ -69,7 +69,7 @@ where
         .set_repo()
         .await
         .map_err(HandlerError::new)?
-        .get_by_tg_id(GetSetByTgID::new(user_id))
+        .get_by_tg_id(GetSetByTgID::new(user_id, Some(false)))
         .await
         .map_err(HandlerError::new)?;
 
@@ -202,7 +202,7 @@ where
         .set_repo()
         .await
         .map_err(HandlerError::new)?
-        .get_by_tg_id(GetSetByTgID::new(user_id))
+        .get_by_tg_id(GetSetByTgID::new(user_id, Some(false)))
         .await
         .map_err(HandlerError::new)?;
 

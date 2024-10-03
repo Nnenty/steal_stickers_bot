@@ -10,18 +10,18 @@ use async_trait::async_trait;
 use crate::application::common::traits::uow::UoWFactory as UoWFactoryTrait;
 
 #[derive(Debug)]
-pub struct Database<UoWFactory> {
+pub struct DatabaseMiddleware<UoWFactory> {
     uow_factory: UoWFactory,
 }
 
-impl<UoWFactory> Database<UoWFactory> {
+impl<UoWFactory> DatabaseMiddleware<UoWFactory> {
     pub const fn new(uow_factory: UoWFactory) -> Self {
         Self { uow_factory }
     }
 }
 
 #[async_trait]
-impl<UoWFactory> OuterMiddleware for Database<UoWFactory>
+impl<UoWFactory> OuterMiddleware for DatabaseMiddleware<UoWFactory>
 where
     UoWFactory: Send + Sync + UoWFactoryTrait + Clone + 'static,
 {
