@@ -87,14 +87,12 @@ where
                     if matches!(err,  ErrorKind::Telegram(TelegramErrorKind::BadRequest { message }) if message.as_ref()
                     == "Bad Request: STICKERSET_INVALID")
                     {
-                        {
-                            set_deleted_col(
-                                uow,
-                                SetDeletedColByShortName::new(sticker.short_name.as_str(), true),
-                            )
-                            .await
-                            .map_err(MiddlewareError::new)?;
-                        }
+                        set_deleted_col(
+                            uow,
+                            SetDeletedColByShortName::new(sticker.short_name.as_str(), true),
+                        )
+                        .await
+                        .map_err(MiddlewareError::new)?;
                     }
                 }
 

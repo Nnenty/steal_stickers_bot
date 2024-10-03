@@ -104,10 +104,8 @@ where
     if !set_created_by(sticker_set_name.as_ref(), bot_username.as_ref()) {
         bot.send(SendMessage::new(
             message.chat.id(),
-            format!(
             "This sticker pack wasnt stolen by this bot, which means i cant add stickers to it according to Telegram rules! \
             You can see your stolen sticker pack using command /mystickers or steal this sticker pack using command /stealpack.",
-            )
         ))
         .await?;
 
@@ -292,7 +290,7 @@ where
             let mut error_count: u32 = 0;
 
             loop {
-                match get_sticker_set_user_id(sticker_to_add_set_name.as_ref(), &client).await {
+                match get_sticker_set_user_id(sticker_to_add_set_name, &client).await {
                     Ok(set_id) => return Ok(set_id),
                     Err(err) if error_count >= 5 => return Err(err),
                     Err(err) => {

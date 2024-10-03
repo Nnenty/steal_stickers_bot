@@ -9,7 +9,7 @@ pub struct Set {
     pub title: String,
 }
 
-impl<'a> From<Set> for SetEntitie {
+impl From<Set> for SetEntitie {
     fn from(value: Set) -> Self {
         Self {
             tg_id: value.tg_id,

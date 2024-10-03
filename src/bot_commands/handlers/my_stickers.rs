@@ -246,7 +246,7 @@ fn get_buttons(
     let mut page_count: u32 = 0;
     let mut current_row_index = 0;
 
-    if list.len() > sticker_sets_number_per_page || list.len() > 0 {
+    if list.len() > sticker_sets_number_per_page || !list.is_empty() {
         list.iter()
             .enumerate()
             .filter(|(index, _)| index % sticker_sets_number_per_page == 0)

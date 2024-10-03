@@ -44,16 +44,15 @@ pub fn current_page_message(
     current_page: usize,
     pages_number: u32,
     sets_number_per_page: usize,
-    list: &Vec<Set>,
+    list: &[Set],
 ) -> String {
     let (begin_page_index, end_page_index) =
         get_page_begin_and_end(current_page, pages_number, list.len(), sets_number_per_page);
 
-    let mut sticker_sets_page =
-        String::from(format!("List of your stickers ({current_page} page):\n"));
-    for i in begin_page_index..end_page_index {
-        let sticker_set_name = list[i].short_name.as_str();
-        let sticker_set_title = list[i].title.as_str();
+    let mut sticker_sets_page = format!("List of your stickers ({current_page} page):\n");
+    for set in list.iter().take(end_page_index).skip(begin_page_index) {
+        let sticker_set_name = set.short_name.as_str();
+        let sticker_set_title = set.title.as_str();
 
         let sticker_set_link = format!("{TELEGRAM_STICKER_SET_URL}{sticker_set_name}");
 
