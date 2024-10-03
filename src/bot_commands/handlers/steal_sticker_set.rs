@@ -1,6 +1,6 @@
 use telers::{
     enums::ParseMode,
-    errors::{session::ErrorKind, HandlerError},
+    errors::{session::ErrorKind, HandlerError, TelegramErrorKind},
     event::{telegram::HandlerResult, EventReturn},
     fsm::{Context, Storage},
     methods::{CreateNewStickerSet, DeleteMessage, GetMe, GetStickerSet, SendMessage},
@@ -119,6 +119,7 @@ where
         .await
         .map_err(Into::into)?
         .expect("Sticker set name for sticker set user want steal should be set");
+    let steal_sticker_set_link = format!("t.me/addstickers/{}", steal_sticker_set_name);
 
     fsm.finish().await.map_err(Into::into)?;
 
@@ -183,19 +184,19 @@ where
     {
         match err {
             ErrorKind::Telegram(err) => {
-                if err.to_string()
-                    == r#"TelegramBadRequest: "Bad Request: sticker set name is already occupied""#
+                if matches!(&err, TelegramErrorKind::BadRequest { message } if message.as_ref()
+                    == "Bad Request: SHORTNAME_OCCUPY_FAILED")
                 {
                     error!(
                         ?err,
-                        "file to create new sticker set; try generate sticker set name again:"
+                        "file to create new sticker set; trying to generate sticker set name again:"
                     );
                     error!(new_set_name, "sticker set name:");
 
                     (new_set_name, new_set_link) =
                         generate_sticker_set_name_and_link(11, &bot_username);
                 } else {
-                    error!(?err, "file to create new sticker set:");
+                    error!(?err, "error occureded while creating new sticker set:");
                     error!(new_set_name, "sticker set name:");
 
                     bot.send(SendMessage::new(
@@ -208,7 +209,7 @@ where
                 }
             }
             err => {
-                error!("error occureded while creating new sticker set: {}\n", err);
+                error!(?err, "error occureded while creating new sticker set:");
 
                 bot.send(SendMessage::new(
                     message.chat.id(),
@@ -244,11 +245,12 @@ where
             bot.send(SendMessage::new(
                 message.chat.id(),
                 format!(
-                    "Error occurded while creating new sticker pack {created_pack}, {but_created}! \
-                    Due to an error, not all stickers have been stolen :(\n\
-                    (you can delete this sticker pack using the /delpack command in official Telegram bot @Stickers. \
+                    "Error occurded while creating new sticker pack {created_pack} (original {original_set}), {but_created}! \
+                    Due to an error, not all stickers have been stolen :( \
+                    (you can delete this sticker pack if you want using the /delpack command in official Telegram bot @Stickers. \
                     Name of this sticker pack: {copy_set_name})",
                     created_pack = html_text_link(new_set_title, new_set_link),
+                    original_set = html_text_link(steal_sticker_set_title, steal_sticker_set_link),
                     but_created = html_bold("but sticker pack was created"),
                     copy_set_name = html_code(new_set_name.as_str())
                 ),
@@ -258,8 +260,6 @@ where
             return Ok(EventReturn::Finish);
         }
     }
-
-    let steal_sticker_set_link = format!("t.me/addstickers/{}", steal_sticker_set_name);
 
     bot.send(
         SendMessage::new(

@@ -84,11 +84,9 @@ where
                     .send(GetStickerSet::new(sticker.short_name.as_str()))
                     .await
                 {
-                    if let ErrorKind::Telegram(TelegramErrorKind::BadRequest { message }) = err {
-                        if message
-                            == "Bad Request: STICKERSET_INVALID"
-                                .to_string()
-                                .into_boxed_str()
+                    if matches!(err,  ErrorKind::Telegram(TelegramErrorKind::BadRequest { message }) if message.as_ref()
+                    == "Bad Request: STICKERSET_INVALID")
+                    {
                         {
                             set_deleted_col(
                                 uow,
