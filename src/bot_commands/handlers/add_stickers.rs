@@ -282,6 +282,8 @@ where
             .reply_parameters(ReplyParameters::new(message.id).chat_id(message.chat.id())),
         )
         .await?;
+
+        return Ok(EventReturn::Finish);
     }
 
     if set_can_created {

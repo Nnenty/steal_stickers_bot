@@ -46,14 +46,14 @@ pub async fn add_stickers(
 
     let mut all_stickers_was_stolen = true;
 
+    let mut sticker_formats = sticker_list.iter().map(|sticker| sticker_format(sticker));
+
     for sticker in sticker_list {
         if let Err(err) = bot
             .send(AddStickerToSet::new(user_id, set_name, {
                 let sticker_is = InputSticker::new(
                     InputFile::id(sticker.file_id.as_ref()),
-                    sticker_format(sticker_list)
-                        // im check the length of list above
-                        .expect("empty sticker set"),
+                    sticker_formats.next().unwrap(),
                 );
 
                 sticker_is.emoji_list(sticker.clone().emoji)

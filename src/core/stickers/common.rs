@@ -4,16 +4,14 @@ use telers::types::Sticker;
 use crate::core::stickers::constants::TELEGRAM_STICKER_SET_URL;
 
 /// Return sticker format for each sticker.
-pub fn sticker_format(stickers: &[Sticker]) -> Option<String> {
-    stickers.iter().next().map(|sticker| {
-        if sticker.is_animated {
-            "animated".to_owned()
-        } else if sticker.is_video {
-            "video".to_owned()
-        } else {
-            "static".to_owned()
-        }
-    })
+pub fn sticker_format(sticker: &Sticker) -> String {
+    if sticker.is_animated {
+        "animated".to_owned()
+    } else if sticker.is_video {
+        "video".to_owned()
+    } else {
+        "static".to_owned()
+    }
 }
 
 /// Generate new random sticker set name. This function assumes that the `length` field is a **positive integer greater than 2**!

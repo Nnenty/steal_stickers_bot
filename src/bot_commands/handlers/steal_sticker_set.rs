@@ -161,20 +161,22 @@ where
             (steal_stickers_from_sticker_set.len(), false)
         };
 
+    let mut sticker_formats = steal_stickers_from_sticker_set
+        .iter()
+        .map(|sticker| sticker_format(sticker));
+
     while let Err(err) = bot
         .send(CreateNewStickerSet::new(
             user_id,
             new_set_name.as_str(),
             new_set_title.as_ref(),
-            steal_stickers_from_sticker_set[..limit_sticker_set_length]
+            steal_stickers_from_sticker_set
                 .iter()
+                .take(limit_sticker_set_length)
                 .map(|sticker| {
                     let sticker_is: InputSticker = InputSticker::new(
                         InputFile::id(sticker.file_id.as_ref()),
-                        sticker_format(&steal_stickers_from_sticker_set)
-                            // i explicitly ask the user to send me a sticker, so that the
-                            // sticker set will contain at least 1 sticker
-                            .expect("empty sticker set"),
+                        sticker_formats.next().unwrap(),
                     );
 
                     sticker_is.emoji_list(sticker.emoji.clone())
@@ -245,7 +247,7 @@ where
             bot.send(SendMessage::new(
                 message.chat.id(),
                 format!(
-                    "Error occurded while creating new sticker pack {created_pack} (original {original_set}), {but_created}! \
+                    "Error occurded while creating new sticker pack {created_pack} (original {original_set}), {but_created}! \n\
                     Due to an error, not all stickers have been stolen :( \
                     (you can delete this sticker pack if you want using the /delpack command in official Telegram bot @Stickers. \
                     Name of this sticker pack: {copy_set_name})",
