@@ -94,7 +94,12 @@ async fn main() {
                 .add_directive("hyper=warn".parse().expect("Invalid directive"))
                 .add_directive("reqwest=warn".parse().expect("Invalid directive"))
                 .add_directive("grammers=warn".parse().expect("Invalid directive"))
-                .add_directive("sqlx=warn".parse().expect("Invalid directive")),
+                .add_directive("sqlx=warn".parse().expect("Invalid directive"))
+                .add_directive(
+                    "telers::client::session::base=off"
+                        .parse()
+                        .expect("Invalid directive"),
+                ),
         )
         .init();
 
