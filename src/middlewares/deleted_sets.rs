@@ -57,7 +57,7 @@ where
 
         let bot = self.bot.lock().await;
 
-        if (now - *last_upd_time_lock).num_hours() >= 1 {
+        if (now - *last_upd_time_lock).num_hours() >= 12 {
             *last_upd_time_lock = now;
 
             let user_id = match request.update.from_id() {
