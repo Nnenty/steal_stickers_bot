@@ -20,7 +20,7 @@ pub async fn source_handler<S: Storage>(
             message.chat.id(),
             format!(
                 "Source code of the bot {here}",
-                here = html_text_link("here!", "github.com/Nnenty/steal_stickers_bot")
+                here = html_text_link("here!", "github.com/neocim/steal_stickers_bot")
             ),
         )
         .parse_mode(ParseMode::HTML),
